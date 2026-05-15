@@ -116,6 +116,7 @@ const CURRENCIES = [
   { id:'dark',   name:'Dark Matter',icon:'🌑', color:'#a78bfa', eq:'10,000$ = 1 dark matter' },
   { id:'ruby',   name:'Ruby',       icon:'🔴', color:'#f87171', eq:'100,000$ = 1 ruby' },
   { id:'rainbow',name:'Rainbow Gem',icon:'🌈', color:'#e879f9', eq:'1,000,000$ = 1 rainbow gem' },
+  { id:'token',  name:'Token',      icon:'🔮', color:'#00f5ff', eq:'Đồng tiền hiếm nhất · Mua qua Token Shop' },
 ];
 // CUR_RATES maps each non-dollar currency id → its dollar value.
 // Used by exchangeCurrency() and the bank wallet display.
@@ -261,13 +262,19 @@ const defaultState = () => ({
   slots: [{ machine:'begin0', earned:0 }, null, null, null, null],
   ownedSlots: 5,
   unlockedTiers: [],
-  wallet: { xu:0, gold:0, diamond:0, dark:0, ruby:0, rainbow:0 },
+  wallet: { xu:0, gold:0, diamond:0, dark:0, ruby:0, rainbow:0, token:0 },
   inventory: [],
   invMaxSlots: 50,
   recyclePoints: 0,
   marketStocks: { normal:[], mid:[], black:[] },
   myListings: [],
   lastStockTime: 0,
+  // ═══ PROFILE ═══
+  playerName: 'PlayerName',
+  playerBio: '',
+  // ═══ BUNDLES ═══
+  factoryPlus: false,
+  factoryPremium: false,
   // ═══ GIÁ TRỊ ĐỒNG TIỀN ═══
   // valueMultiplier tăng 1%/phút (compound)
   // Sau 1 phút: x1.01, sau 10 phút: x1.105, sau 1 giờ: x1.817, sau 1 ngày: x1138x
@@ -322,6 +329,27 @@ const defaultState = () => ({
 });
 
 let G = loadGame();
+
+// Re-apply mat bonuses from purchase history to fix effects after reload
+// matBonuses are cumulative so we reset to defaults then re-apply all purchases
+(function reapplyMatBonuses() {
+  if (!G.matPurchased || Object.keys(G.matPurchased).length === 0) return;
+  // Reset to default values before re-applying
+  const def = defaultState().matBonuses;
+  G.matBonuses = {
+    speedBoost: def.speedBoost,
+    slotBoost: 0,
+    autoCollect: def.autoCollect,
+    inetFreeSlots: def.inetFreeSlots,
+    lotteryLuckBonus: def.lotteryLuckBonus,
+    recycleBoost: def.recycleBoost,
+    powerEfficiency: def.powerEfficiency,
+  };
+  // Re-apply each purchased item the correct number of times
+  // (MAT_ITEMS not defined yet at this point — defer to after MAT_ITEMS is defined)
+  // This runs as a deferred call from initGame via window._reapplyMatBonusesDeferred
+  window._matPurchasedToReapply = G.matPurchased;
+})();
 
 // Also try to load from artifact persistent storage (async, overwrites if found)
 if (window.storage) {
@@ -396,6 +424,11 @@ function parseLoadedData(s) {
       if (!p.myListings) p.myListings = [];
       if (!p.lastStockTime) p.lastStockTime = 0;
       if (!p.boughtBundles) p.boughtBundles = [];
+      if (!p.boughtTokenBundles) p.boughtTokenBundles = [];
+      if (!p.wallet.token) p.wallet.token = 0;
+      if (!p.taxEvadeTickets) p.taxEvadeTickets = 0;
+      if (!p.debtEvadeTickets) p.debtEvadeTickets = 0;
+      if (!p.permanentSpeedInternet) p.permanentSpeedInternet = false;
       if (!p.valueMultiplier || p.valueMultiplier < 1) p.valueMultiplier = 1.0;
       if (!p.playedSeconds) p.playedSeconds = 0;
       if (p.inetExpiry === undefined) p.inetExpiry = 0;
@@ -421,6 +454,15 @@ function parseLoadedData(s) {
       if (p.totalPowerBought === undefined) p.totalPowerBought = 0;
       if (p.manualPowerOff === undefined) p.manualPowerOff = false;
       if (!p.matBonuses) p.matBonuses = defaultState().matBonuses;
+      // Always ensure all matBonus fields exist with defaults
+      const defMat = defaultState().matBonuses;
+      if (p.matBonuses.speedBoost === undefined)       p.matBonuses.speedBoost = defMat.speedBoost;
+      if (p.matBonuses.slotBoost === undefined)        p.matBonuses.slotBoost = defMat.slotBoost;
+      if (p.matBonuses.autoCollect === undefined)      p.matBonuses.autoCollect = defMat.autoCollect;
+      if (p.matBonuses.inetFreeSlots === undefined)    p.matBonuses.inetFreeSlots = defMat.inetFreeSlots;
+      if (p.matBonuses.lotteryLuckBonus === undefined) p.matBonuses.lotteryLuckBonus = defMat.lotteryLuckBonus;
+      if (p.matBonuses.recycleBoost === undefined)     p.matBonuses.recycleBoost = defMat.recycleBoost;
+      if (p.matBonuses.powerEfficiency === undefined)  p.matBonuses.powerEfficiency = defMat.powerEfficiency;
       if (!p.matPurchased) p.matPurchased = {};
       if (!p.loan) p.loan = defaultState().loan;
       if (p.loan.lockedFeatures === undefined) p.loan.lockedFeatures = false;
@@ -433,6 +475,12 @@ function parseLoadedData(s) {
       if (p.tax.totalPaid === undefined) p.tax.totalPaid = 0;
       if (p.tutorialDone === undefined) p.tutorialDone = false;
       if (!p.adsDismissed) p.adsDismissed = {};
+      // Profile
+      if (!p.playerName) p.playerName = 'PlayerName';
+      if (p.playerBio === undefined) p.playerBio = '';
+      // Bundle flags
+      if (p.factoryPlus === undefined) p.factoryPlus = false;
+      if (p.factoryPremium === undefined) p.factoryPremium = false;
       return p;
   } catch(e){ console.warn('Parse error:', e); }
   return defaultState();
@@ -452,6 +500,8 @@ function resetGame() {
 function getRate() {
   let r = 0;
   G.slots.forEach(s => { if (s && ALL_M[s.machine]) r += ALL_M[s.machine].rate; });
+  // Factory Plus / Premium: x2 income
+  if (G.factoryPlus || G.factoryPremium) r *= 2;
   return r;
 }
 function getMachineCount() { return G.slots.filter(s => s && s.machine).length; }
@@ -813,6 +863,7 @@ function renderLoanPanel() {
           💰 Trả ${fmt(owed)} ${!canRepay?'(Không đủ tiền)':''}
         </button>
         ${!canRepay?`<div style="font-size:11px;color:#4b5563;text-align:center;margin-top:4px">Thiếu ${fmt(owed - G.money)}</div>`:''}
+        ${(G.debtEvadeTickets||0) > 0 ? `<button onclick="useEvadeTicketFromTab('loan')" style="margin-top:10px;width:100%;padding:10px;background:#1a1500;color:#ffd700;border:1px solid #b45309;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🎫 Dùng Vé Xóa Nợ (còn ${G.debtEvadeTickets||0} vé)</button>` : ''}
       </div>`;
   }
 }
@@ -845,6 +896,91 @@ function doLoan() {
     showNotif('💳 Đã vay ' + fmt(amt) + '! Nhớ trả trước 30 phút!');
   }
   updateUI(); renderLoanPanel(); saveGame(false);
+}
+
+function useEvadeTicket(invIdx) {
+  const invItem = G.inventory[invIdx];
+  if (!invItem || !invItem.isTicket) return;
+  // Show selection popup
+  var overlay = document.createElement('div');
+  overlay.id = 'evade-ticket-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML =
+    '<div style="background:#0d1117;border:2px solid #b4530966;border-radius:16px;padding:24px 20px;width:100%;max-width:320px;position:relative">'
+    + '<button onclick="document.getElementById(\'evade-ticket-popup\').remove()" style="position:absolute;top:10px;right:12px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:7px;padding:3px 9px;cursor:pointer;font-size:14px;font-weight:700">✕</button>'
+    + '<div style="text-align:center;margin-bottom:18px">'
+      + '<div style="font-size:40px;margin-bottom:6px">🎫</div>'
+      + '<div style="font-size:16px;font-weight:800;color:#ffd700;margin-bottom:4px">Vé Trốn Thuế & Nợ</div>'
+      + '<div style="font-size:12px;color:#6b7280">Chọn cách sử dụng vé này</div>'
+    + '</div>'
+    + '<button onclick="applyEvadeTicket(' + invIdx + ',\'tax\')" style="width:100%;padding:12px;background:#1a1500;color:#ffd700;border:1.5px solid #b45309;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;margin-bottom:10px">🧾 Xóa 1 Hóa Đơn Thuế</button>'
+    + '<button onclick="applyEvadeTicket(' + invIdx + ',\'loan\')" style="width:100%;padding:12px;background:#1a0f00;color:#fb923c;border:1.5px solid #92400e;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🏦 Xóa Khoản Nợ Hiện Tại</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function applyEvadeTicket(invIdx, type) {
+  const invItem = G.inventory[invIdx];
+  if (!invItem || !invItem.isTicket) return;
+
+  if (type === 'tax') {
+    if (!G.tax || !G.tax.bills) { showError('⚠️ Không có hóa đơn thuế nào!'); return; }
+    const unpaid = G.tax.bills.filter(b => !b.paid);
+    if (unpaid.length === 0) { showError('✅ Không có hóa đơn thuế chưa nộp!'); return; }
+    // Pay off first unpaid bill for free
+    unpaid[0].paid = true;
+    unpaid[0].paidAt = Date.now();
+    G.inventory.splice(invIdx, 1);
+    G.taxEvadeTickets = Math.max(0, (G.taxEvadeTickets||0) - 1);
+    var popup = document.getElementById('evade-ticket-popup');
+    if (popup) popup.remove();
+    showNotif('🎫 Vé đã xóa hóa đơn thuế "' + unpaid[0].item + '"!');
+    updateUI(); saveGame(false);
+    renderTaxPanel(); renderTaxBadge();
+    if (document.getElementById('panel-inventory').classList.contains('active')) renderInventory();
+  } else if (type === 'loan') {
+    if (!G.loan || !G.loan.active) { showError('⚠️ Bạn không có khoản nợ nào!'); return; }
+    const wasLocked = G.loan.lockedFeatures;
+    const prevCount = G.loan.loanCount || 0;
+    G.loan = { active:false, principal:0, interest:0, borrowedAt:0, lockedFeatures:false, bankruptTriggered:false, loanCount: prevCount };
+    if (wasLocked) { applyLoanLockState(false); }
+    G.inventory.splice(invIdx, 1);
+    G.debtEvadeTickets = Math.max(0, (G.debtEvadeTickets||0) - 1);
+    var popup = document.getElementById('evade-ticket-popup');
+    if (popup) popup.remove();
+    showNotif('🎫 Vé đã xóa toàn bộ khoản nợ miễn phí!');
+    updateUI(); saveGame(false);
+    renderLoanPanel();
+    if (document.getElementById('panel-inventory').classList.contains('active')) renderInventory();
+  }
+}
+
+function useEvadeTicketFromTab(type) {
+  // Find first ticket in inventory
+  var ticketIdx = G.inventory.findIndex(function(it){ return it.isTicket; });
+  if (ticketIdx === -1) {
+    // No ticket object in inventory but counter says there are — use counter directly
+    if (type === 'tax') {
+      if (!G.tax || !G.tax.bills) { showError('⚠️ Không có hóa đơn thuế!'); return; }
+      var unpaid2 = G.tax.bills.filter(function(b){ return !b.paid; });
+      if (!unpaid2.length) { showError('✅ Không có hóa đơn chưa nộp!'); return; }
+      unpaid2[0].paid = true; unpaid2[0].paidAt = Date.now();
+      G.taxEvadeTickets = Math.max(0, (G.taxEvadeTickets||0) - 1);
+      showNotif('🎫 Vé đã xóa hóa đơn thuế!');
+      updateUI(); saveGame(false); renderTaxPanel(); renderTaxBadge();
+    } else {
+      if (!G.loan || !G.loan.active) { showError('⚠️ Không có khoản nợ!'); return; }
+      var wasLocked2 = G.loan.lockedFeatures;
+      var prevCount2 = G.loan.loanCount || 0;
+      G.loan = { active:false, principal:0, interest:0, borrowedAt:0, lockedFeatures:false, bankruptTriggered:false, loanCount:prevCount2 };
+      if (wasLocked2) applyLoanLockState(false);
+      G.debtEvadeTickets = Math.max(0, (G.debtEvadeTickets||0) - 1);
+      showNotif('🎫 Vé đã xóa khoản nợ!');
+      updateUI(); saveGame(false); renderLoanPanel();
+    }
+    return;
+  }
+  applyEvadeTicket(ticketIdx, type);
 }
 
 function doRepayLoan() {
@@ -1098,6 +1234,7 @@ function renderTaxPanel() {
       </div>
     </div>
     ${unpaid.length > 1 ? `<button onclick="taxPayAll()" style="margin-top:10px;width:100%;padding:9px;background:#1e3a2a;color:#4ade80;border:1px solid #2d5a3f;border-radius:6px;cursor:pointer;font-size:13px">💰 Nộp Tất Cả (${fmt(totalUnpaidAmt)})</button>` : ''}
+    ${(G.taxEvadeTickets||0) > 0 && unpaid.length > 0 ? `<button onclick="useEvadeTicketFromTab('tax')" style="margin-top:8px;width:100%;padding:9px;background:#1a1500;color:#ffd700;border:1px solid #b45309;border-radius:6px;cursor:pointer;font-size:13px">🎫 Dùng Vé Trốn Thuế (còn ${G.taxEvadeTickets||0} vé)</button>` : ''}
   </div>`;
 
   // Rules card
@@ -1418,7 +1555,63 @@ function updateUI() {
   document.getElementById('hdr-money').textContent = fmt(G.money);
   document.getElementById('mc-count').textContent = getMachineCount();
   document.getElementById('mc-slots').textContent = G.ownedSlots;
+  // Update token display in titlebar
+  const tokenAmt = G.wallet && G.wallet.token ? G.wallet.token : 0;
+  const hdrToken = document.getElementById('hdr-token');
+  const hdrTokenVal = document.getElementById('hdr-token-val');
+  if (hdrToken) hdrToken.style.display = tokenAmt > 0 ? 'inline-flex' : 'none';
+  if (hdrTokenVal) hdrTokenVal.textContent = tokenAmt.toLocaleString();
   if (document.getElementById('panel-stats').classList.contains('active')) renderStats();
+}
+
+// ══════════════════════════════════════════════════════════════
+// PROFILE FUNCTIONS
+// ══════════════════════════════════════════════════════════════
+function getNameTagHTML(name) {
+  if (G.factoryPremium) {
+    return '<span class="nametag-glitchy" data-text="' + name + '">' + name + '</span>';
+  } else if (G.factoryPlus) {
+    return '<span class="nametag-sunny">' + name + '</span>';
+  }
+  return '<span>' + name + '</span>';
+}
+
+function renderProfileDisplay() {
+  var nameEl = document.getElementById('profile-name-display');
+  var bioEl = document.getElementById('profile-bio-display');
+  if (!nameEl) return;
+  var name = G.playerName || 'PlayerName';
+  nameEl.innerHTML = getNameTagHTML(name);
+  if (bioEl) bioEl.textContent = G.playerBio || '';
+}
+
+function openProfileEdit() {
+  var form = document.getElementById('profile-edit-form');
+  var nameInp = document.getElementById('profile-name-input');
+  var bioInp = document.getElementById('profile-bio-input');
+  if (!form) return;
+  if (nameInp) nameInp.value = G.playerName || 'PlayerName';
+  if (bioInp) bioInp.value = G.playerBio || '';
+  form.style.display = 'block';
+  if (nameInp) nameInp.focus();
+}
+
+function closeProfileEdit() {
+  var form = document.getElementById('profile-edit-form');
+  if (form) form.style.display = 'none';
+}
+
+function saveProfileEdit() {
+  var nameInp = document.getElementById('profile-name-input');
+  var bioInp = document.getElementById('profile-bio-input');
+  var name = (nameInp ? nameInp.value.trim() : '') || 'PlayerName';
+  var bio = bioInp ? bioInp.value.trim() : '';
+  G.playerName = name.substring(0, 24);
+  G.playerBio = bio.substring(0, 80);
+  closeProfileEdit();
+  renderProfileDisplay();
+  saveGame(false);
+  showNotif('✅ Profile đã được lưu!');
 }
 
 function renderStats() {
@@ -1428,6 +1621,11 @@ function renderStats() {
   document.getElementById('s-rate').textContent = fmt(getRate() * vm)+'/s';
   document.getElementById('s-mach').textContent = getMachineCount();
   document.getElementById('s-slots').textContent = getMachineCount()+'/'+G.ownedSlots;
+
+  // ── Render profile name + bio + nametag ──
+  renderProfileDisplay();
+
+
   // Value multiplier info
   let vmEl = document.getElementById('s-vmult-block');
   if (!vmEl) {
@@ -1492,7 +1690,7 @@ function switchTab(tab) {
   if (tab==='shop') { renderShopTabs(); renderShopContent(); }
   if (tab==='bank') renderBank();
   if (tab==='tax') renderTaxPanel();
-  if (tab==='stats') renderStats();
+  if (tab==='stats') { renderStats(); renderProfileDisplay(); }
   if (tab==='base') renderSlots();
   if (tab==='slots') renderSlotPanel();
   if (tab==='market') { renderMarket(); }
@@ -1946,7 +2144,9 @@ function processListingSales() {
     const a = (end - c) - b;                     // ≈ −0.682
     const lnChance = a*t*t + b*t + c;
     const buyChance = Math.max(0.01, Math.min(0.95, Math.exp(lnChance)));
-    if (Math.random() < buyChance) {
+    // Factory Plus / Premium: x2 market buy success rate
+    const finalBuyChance = (G.factoryPlus || G.factoryPremium) ? Math.min(0.95, buyChance * 2) : buyChance;
+    if (Math.random() < finalBuyChance) {
       G.money += l.price;
       G.totalEarned += l.price;
       showNotif('💰 Bán được: '+l.name+' +'+fmtPrice(l.price));
@@ -1974,8 +2174,8 @@ function renderInventory() {
 
   G.inventory.forEach((invItem, idx) => {
     const item = MARKET_ITEMS.find(i=>i.id===invItem.itemId);
-    const tierColors = {super:'#a78bfa',tech:'#60a5fa',fashion:'#fbbf24',personal:'#4ade80',small:'#6b7280'};
-    const tierNames = {super:'Siêu Tài Sản',tech:'Công Nghệ',fashion:'Thời Trang',personal:'Cá Nhân',small:'Nhỏ'};
+    const tierColors = {super:'#a78bfa',tech:'#60a5fa',fashion:'#fbbf24',personal:'#4ade80',small:'#6b7280',special:'#ffd700'};
+    const tierNames = {super:'Siêu Tài Sản',tech:'Công Nghệ',fashion:'Thời Trang',personal:'Cá Nhân',small:'Nhỏ',special:'Đặc Biệt'};
     const tc = tierColors[invItem.tier]||'#6b7280';
     const tn = tierNames[invItem.tier]||invItem.tier;
     const baseAvg = item
@@ -1984,15 +2184,27 @@ function renderInventory() {
     const div = document.createElement('div');
     div.className = 'inv-card';
     div.style.borderColor = tc+'44';
-    div.innerHTML = `
-      <div class="inv-img">${invItem.icon}</div>
-      <div class="inv-name">${invItem.name}</div>
-      <div class="inv-tier" style="background:${tc}22;color:${tc}">${tn}</div>
-      <div style="font-size:10px;color:#6b7280;margin-bottom:5px">Đã mua: ${fmtPrice(invItem.boughtPrice)}</div>
-      <div class="inv-btns">
-        <button onclick="recycleItem(${idx})" style="background:#1e3a2a;color:#4ade80;border-color:#2d5a3f" title="Tái chế">♻️ +${invItem.recyclePoints}pt</button>
-        <button onclick="quickSell(${idx},${baseAvg})" style="background:#3b1a1a;color:#f87171;border-color:#5a2a2a" title="Bán nhanh">💵</button>
-      </div>`;
+
+    if (invItem.isTicket) {
+      div.innerHTML = `
+        <div class="inv-img">${invItem.icon}</div>
+        <div class="inv-name">${invItem.name}</div>
+        <div class="inv-tier" style="background:${tc}22;color:${tc}">${tn}</div>
+        <div style="font-size:10px;color:#ffd700;margin-bottom:5px">Dùng để miễn phí 1 lần thuế hoặc nợ</div>
+        <div class="inv-btns">
+          <button onclick="useEvadeTicket(${idx})" style="background:#1a1500;color:#ffd700;border-color:#b45309;font-size:11px;padding:5px 8px" title="Dùng vé">🎫 Dùng</button>
+        </div>`;
+    } else {
+      div.innerHTML = `
+        <div class="inv-img">${invItem.icon}</div>
+        <div class="inv-name">${invItem.name}</div>
+        <div class="inv-tier" style="background:${tc}22;color:${tc}">${tn}</div>
+        <div style="font-size:10px;color:#6b7280;margin-bottom:5px">Đã mua: ${fmtPrice(invItem.boughtPrice)}</div>
+        <div class="inv-btns">
+          <button onclick="recycleItem(${idx})" style="background:#1e3a2a;color:#4ade80;border-color:#2d5a3f" title="Tái chế">♻️ +${invItem.recyclePoints}pt</button>
+          <button onclick="quickSell(${idx},${baseAvg})" style="background:#3b1a1a;color:#f87171;border-color:#5a2a2a" title="Bán nhanh">💵</button>
+        </div>`;
+    }
     grid.appendChild(div);
   });
 }
@@ -2184,6 +2396,83 @@ setInterval(()=>saveGame(false), 15000);
 
 
 // ═══ VIP SHOP ═════════════════════════════════════════════════════
+// ═══ TOKEN BUNDLES (mua bằng VNĐ thật) ═════════════════════════════
+const TOKEN_BUNDLES = [
+  {
+    id:'token_small', name:'Token Bundle', icon:'🔮', tier:1,
+    priceVND:10000, priceDisplay:'10,000đ', tokens:10,
+    color:'#00f5ff', border:'#00c8ff', badgeColor:'#0ea5e9', badge:'PHỔ BIẾN',
+    theme:'linear-gradient(135deg,#001a2e,#002a3e)',
+    desc:'Khởi đầu hành trình Token của bạn!',
+    perks:[ {icon:'🔮',text:'+10 Token'}, {icon:'📺',text:'+1 Block Ads vĩnh viễn'} ],
+    effects:{ tokens:10, blockAds:1 }
+  },
+  {
+    id:'token_big', name:'Big Token Bundle', icon:'💠', tier:2,
+    priceVND:30000, priceDisplay:'30,000đ', tokens:40,
+    color:'#818cf8', border:'#6366f1', badgeColor:'#6366f1', badge:'GIÁ TRỊ',
+    theme:'linear-gradient(135deg,#0f0a2a,#1a0f3a)',
+    desc:'Tăng tốc sản xuất ngay từ đầu game!',
+    perks:[ {icon:'💠',text:'+40 Token'}, {icon:'🏭',text:'Unlock Tier 1 & 2 Shop Machine'} ],
+    effects:{ tokens:40, unlockShopTiers:[1,2] }
+  },
+  {
+    id:'token_mega', name:'Mega Token Bundle', icon:'⚡', tier:3,
+    priceVND:50000, priceDisplay:'50,000đ', tokens:90,
+    color:'#f59e0b', border:'#f59e0b', badgeColor:'#d97706', badge:'HOT 🔥',
+    theme:'linear-gradient(135deg,#1a1000,#2a1a00)',
+    desc:'Combo cực mạnh cho game thủ nghiêm túc!',
+    perks:[
+      {icon:'⚡',text:'+90 Token'},
+      {icon:'🔓',text:'Unlock Tier 2, 3, 4 Shop Machine'},
+      {icon:'🌐',text:'Gói Internet Speed vĩnh viễn'},
+      {icon:'💹',text:'Value Pump ×2 (tab Nguyên Liệu)'},
+    ],
+    effects:{ tokens:90, unlockShopTiers:[2,3,4], permanentSpeedInternet:true, freeValuePump:true }
+  },
+  {
+    id:'token_elite', name:'Elite Token Bundle', icon:'🌟', tier:3,
+    priceVND:80000, priceDisplay:'80,000đ', tokens:150,
+    color:'#34d399', border:'#10b981', badgeColor:'#059669', badge:'ELITE ✨',
+    theme:'linear-gradient(135deg,#001a10,#002a18)',
+    desc:'Gói trung cấp hoàn hảo — tăng tốc toàn diện!',
+    perks:[
+      {icon:'🌟',text:'+150 Token'},
+      {icon:'🔓',text:'Unlock Tier 3, 4, 5 Shop Machine'},
+      {icon:'⛽',text:'Bình Xăng Loại 4 × 3 (tab Điện)'},
+      {icon:'🎒',text:'+10 ô Kho Đồ'},
+    ],
+    effects:{ tokens:150, unlockShopTiers:[3,4,5], fuelF4:3, bonusInvSlots:10 }
+  },
+  {
+    id:'token_super', name:'Super Token Bundle', icon:'🚀', tier:4,
+    priceVND:200000, priceDisplay:'200,000đ', tokens:500,
+    color:'#f87171', border:'#ef4444', badgeColor:'#dc2626', badge:'SIÊU HIẾM 💎',
+    theme:'linear-gradient(135deg,#1a0505,#2a0a0a)',
+    desc:'Gói siêu giá trị dành cho người chơi đỉnh cao!',
+    perks:[
+      {icon:'🚀',text:'+450 Token + 50 Token bonus'},
+      {icon:'💵',text:'+400,000đ tiền khởi đầu'},
+    ],
+    effects:{ tokens:500, startBonus:400000 }
+  },
+  {
+    id:'token_legendary', name:'Legendary Token Bundle', icon:'👑', tier:5,
+    priceVND:499999, priceDisplay:'499,999đ', tokens:1100,
+    color:'#ffd700', border:'#ffd700', badgeColor:'#b45309', badge:'👑 LEGENDARY',
+    theme:'linear-gradient(135deg,#1a1000,#2d1f00,#1a1000)',
+    desc:'Gói đỉnh nhất lịch sử game. Chỉ dành cho huyền thoại!',
+    perks:[
+      {icon:'👑',text:'+1,100 Token'},
+      {icon:'🌐',text:'Gói Internet Speed vĩnh viễn'},
+      {icon:'🏭',text:'Bình Xăng Loại 5 × 5 (tab Điện)'},
+      {icon:'💰',text:'+5,000,000$ tiền khởi đầu'},
+      {icon:'🎫',text:'+20 Vé Trốn Thuế & Trốn Nợ (vào Túi Đồ)'},
+    ],
+    effects:{ tokens:1100, permanentSpeedInternet:true, fuelF5:5, startBonusMillion:5, taxEvadeTickets:20 }
+  },
+];
+
 // One-time purchasable bundles that give permanent advantages.
 // Each bundle can only be bought once (tracked in G.boughtBundles[]).
 // Prime:      +1 slot, unlock next 2 tiers
@@ -2224,45 +2513,358 @@ const VIP_BUNDLES = [
   },
 ];
 
+// ═══ FACTORY BUNDLES (mua bằng Token 🔮) ═════════════════════════════
+const FACTORY_BUNDLES = [
+  {
+    id: 'factory_plus',
+    name: 'Factory Plus',
+    icon: '🏭',
+    tokenPrice: 599,
+    color: '#38bdf8',
+    theme: 'linear-gradient(135deg,#020f1c,#0a1a2e)',
+    border: '#0ea5e9',
+    badge: 'FACTORY',
+    badgeColor: '#0369a1',
+    perks: [
+      { icon: '💵', text: 'x2 thu nhập từ máy' },
+      { icon: '🛒', text: 'Tỉ lệ mua thành công chợ x2' },
+      { icon: '🔮', text: '+5% bonus token khi mua bundle Token' },
+      { icon: '✨', text: 'Name tag hiệu ứng Sunny ở Profile & Rank' },
+    ],
+    desc: 'Nâng cấp nhà máy vượt trội — thu nhập gấp đôi, chợ có lợi hơn!',
+  },
+  {
+    id: 'factory_premium',
+    name: 'Factory Premium',
+    icon: '⚡',
+    tokenPrice: 999,
+    color: '#f0abfc',
+    theme: 'linear-gradient(135deg,#0d0118,#1a0a2e)',
+    border: '#a855f7',
+    badge: 'PREMIUM',
+    badgeColor: '#7e22ce',
+    perks: [
+      { icon: '💵', text: 'x2 thu nhập từ máy' },
+      { icon: '🛒', text: 'Tỉ lệ mua thành công chợ x2' },
+      { icon: '🔮', text: '+10% bonus token khi mua bundle Token' },
+      { icon: '⚡', text: 'Name tag hiệu ứng Glitchy ở Profile & Rank' },
+    ],
+    desc: 'Trải nghiệm premium tối thượng — name tag glitchy độc quyền!',
+  },
+];
+
 function renderVipShop() {
-  const container = document.getElementById('vip-bundles');
+  var container = document.getElementById('vip-bundles');
   container.innerHTML = '';
-  VIP_BUNDLES.forEach(bundle => {
-    const canBuy = G.money >= bundle.price;
-    const bought = (G.boughtBundles||[]).includes(bundle.id);
-    const div = document.createElement('div');
-    div.style.cssText = `background:${bundle.theme};border:1px solid ${bundle.border}66;border-radius:13px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden`;
-    div.innerHTML = `
-      <div style="position:absolute;top:12px;right:12px;background:${bundle.badgeColor};color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px">${bundle.badge}</div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-        <div style="font-size:40px">${bundle.icon}</div>
-        <div>
-          <div style="font-size:18px;font-weight:700;color:${bundle.color}">${bundle.name}</div>
-          <div style="font-size:13px;color:#6b7280;margin-top:2px">${bundle.desc}</div>
-        </div>
-      </div>
-      <div style="margin-bottom:14px">
-        ${bundle.perks.map(p=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid ${bundle.border}22">
-            <span style="font-size:18px">${p.icon}</span>
-            <span style="font-size:14px;color:#e2e8f0">${p.text}</span>
-          </div>`).join('')}
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:22px;font-weight:700;color:${bundle.color}">$${bundle.price.toLocaleString()}</div>
-          ${!canBuy&&!bought?`<div style="font-size:12px;color:#4b5563">Cần thêm ${fmt(bundle.price-G.money)}</div>`:''}
-        </div>
-        <button onclick="buyVipBundle('${bundle.id}')" ${bought||!canBuy?'disabled':''}
-          style="padding:10px 28px;font-size:15px;font-weight:600;border-radius:8px;cursor:pointer;border:1px solid ${bundle.border};
-          background:${bought?'#1f2937':canBuy?bundle.theme:'#111827'};
-          color:${bought?'#4b5563':canBuy?bundle.color:'#374151'};
-          ${(!canBuy||bought)?'opacity:0.5;cursor:not-allowed':''}">
-          ${bought?'✅ Đã mua':canBuy?'🛒 Mua Ngay':'Chưa đủ tiền'}
-        </button>
-      </div>`;
+
+  // Token balance header
+  var tokenHeader = document.createElement('div');
+  tokenHeader.style.cssText = 'background:linear-gradient(135deg,#001520,#002030);border:1px solid #00f5ff44;border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between';
+  tokenHeader.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:24px">🔮</span><div><div style="font-size:13px;color:#00f5ff;font-weight:700;letter-spacing:1px">TOKEN CỦA BẠN</div><div style="font-size:11px;color:#64748b">Đồng tiền hiếm nhất game</div></div></div>'
+    + '<div style="text-align:right"><div style="font-size:24px;font-weight:900;color:#00f5ff">' + (G.wallet.token||0).toLocaleString() + ' 🔮</div>'
+    + '<div style="font-size:13px;font-weight:700;color:#4ade80;margin-top:2px">' + fmt(G.money) + '</div></div>';
+  container.appendChild(tokenHeader);
+
+  // Section title
+  var sec = document.createElement('div');
+  sec.style.cssText = 'text-align:center;margin-bottom:16px';
+  sec.innerHTML = '<div style="font-size:15px;font-weight:700;color:#ffd700;letter-spacing:2px">⭐ TOKEN BUNDLES ⭐</div>'
+    + '<div style="font-size:11px;color:#6b7280;margin-top:4px">Mua token bằng VNĐ — Một lần mua, hưởng mãi mãi</div>';
+  container.appendChild(sec);
+
+  // Separate small bundles (tier 1-3) from large bundles (tier 4-5)
+  var smallBundles = TOKEN_BUNDLES.filter(function(b){ return b.tier <= 3; });
+  var largeBundles = TOKEN_BUNDLES.filter(function(b){ return b.tier >= 4; });
+
+  function buildTokenBundleCard(bundle, isSmall) {
+    var bought = (G.boughtTokenBundles||[]).includes(bundle.id);
+    var tier = bundle.tier;
+    var div = document.createElement('div');
+
+    var glowStyle = '';
+    var extraStyle = '';
+    var particleHTML = '';
+
+    if (tier >= 5) {
+      var stars = '';
+      for (var i=0;i<16;i++) {
+        stars += '<span style="position:absolute;width:' + (4+Math.random()*6) + 'px;height:' + (4+Math.random()*6) + 'px;border-radius:50%;background:radial-gradient(circle,#ffd700,#ff8800);left:' + Math.round(Math.random()*100) + '%;bottom:' + Math.round(Math.random()*100) + '%;animation:tb-particle-float ' + (2+Math.random()*2).toFixed(1) + 's ' + (Math.random()*2).toFixed(1) + 's ease-in infinite;opacity:0.85"></span>';
+      }
+      particleHTML = '<div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0">' + stars + '</div>'
+        + '<div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border:2px dashed rgba(255,215,0,0.4);border-radius:50%;animation:tb-sparkle-ring-spin 4s linear infinite;pointer-events:none"></div>';
+      glowStyle = 'box-shadow:0 0 30px #ffd70055,0 0 60px #ffd70033,inset 0 0 30px rgba(255,215,0,0.05);';
+      extraStyle = 'animation:tb-legendary-pulse 2s ease-in-out infinite;';
+    } else if (tier === 4) {
+      particleHTML = '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#ef4444,#ff6b00,#ef4444,transparent);pointer-events:none"></div>';
+      glowStyle = 'box-shadow:0 0 20px #ef444455,0 0 40px #ef444422;';
+      extraStyle = 'animation:tb-super-shake 4s ease-in-out infinite;';
+    } else if (tier === 3) {
+      glowStyle = 'box-shadow:0 0 15px #f59e0b44,0 0 30px #f59e0b22;';
+    } else if (tier === 2) {
+      glowStyle = 'box-shadow:0 0 10px #6366f133;';
+    }
+
+    var baseRadius = isSmall ? '14px' : '16px';
+    var basePad    = isSmall ? '14px' : '20px';
+    div.style.cssText = 'background:' + bundle.theme + ';border:2px solid ' + bundle.border + '99;border-radius:' + baseRadius + ';padding:' + basePad + ';position:relative;overflow:hidden;' + glowStyle + extraStyle + (isSmall ? 'display:flex;flex-direction:column;' : '');
+
+    var badgeAnim = tier >= 5 ? 'animation:tb-badge-flash 1.5s ease-in-out infinite;' : '';
+    var iconSize  = isSmall ? '36' : (tier >= 4 ? '50' : '42');
+    var iconExtra = tier >= 5 ? ('animation:tb-icon-spin 3s linear infinite;filter:drop-shadow(0 0 10px ' + bundle.color + ');')
+                  : (tier >= 4 ? 'filter:drop-shadow(0 0 8px ' + bundle.color + ');' : '');
+    var nameSize  = isSmall ? '14' : (tier >= 4 ? '20' : '17');
+    var nameExtra = tier >= 5 ? ('text-shadow:0 0 10px ' + bundle.color + ';') : '';
+    var priceExtra= tier >= 4 ? ('text-shadow:0 0 8px ' + bundle.color + ';') : '';
+    var bonusTag  = bundle.id === 'token_super' ? '<span style="font-size:10px;color:#fcd34d;background:#78350f44;padding:2px 6px;border-radius:10px;margin-left:4px">+50 bonus!</span>' : '';
+    var btnCursor = bought ? 'not-allowed' : 'pointer';
+    var btnBg     = bought ? '#1f2937' : 'transparent';
+    var btnColor  = bought ? '#4b5563' : bundle.color;
+    var btnOpacity= bought ? 'opacity:0.5;' : '';
+    var btnAnim   = (!bought && tier >= 5)
+      ? ('animation:tb-btn-glow 1.5s ease-in-out infinite;box-shadow:0 0 15px ' + bundle.color + '66;')
+      : (!bought && tier === 4 ? 'animation:tb-btn-pulse 2s ease-in-out infinite;' : '');
+    var btnLabel  = bought ? '✅ Đã Mua' : '💳 Mua';
+    var btnPad    = isSmall ? '8px 12px' : '11px 24px';
+    var btnFontSize = isSmall ? '12px' : '14px';
+
+    var perksHTML = '';
+    bundle.perks.forEach(function(p) {
+      perksHTML += '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid ' + bundle.border + '33">'
+        + '<span style="font-size:' + (isSmall?'14':'17') + 'px">' + p.icon + '</span>'
+        + '<span style="font-size:' + (isSmall?'11':'13') + 'px;color:#e2e8f0">' + p.text + '</span></div>';
+    });
+
+    var badgeFontSize = isSmall ? '9px' : '10px';
+    var badgePad = isSmall ? '3px 8px' : '4px 12px';
+    var tokenFontSize = isSmall ? '16px' : '20px';
+    var priceFontSize = isSmall ? '18px' : '24px';
+
+    if (isSmall) {
+      div.innerHTML = particleHTML
+        + '<div style="position:absolute;top:8px;right:8px;background:' + bundle.badgeColor + ';color:#fff;font-size:' + badgeFontSize + ';font-weight:700;padding:' + badgePad + ';border-radius:20px;letter-spacing:1px;z-index:2;' + badgeAnim + '">' + bundle.badge + '</div>'
+        + '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;margin-bottom:10px;position:relative;z-index:2">'
+          + '<div style="font-size:' + iconSize + 'px;' + iconExtra + '">' + bundle.icon + '</div>'
+          + '<div><div style="font-size:' + nameSize + 'px;font-weight:800;color:' + bundle.color + ';' + nameExtra + '">' + bundle.name + '</div>'
+          + '<div style="font-size:10px;color:#9ca3af;margin-top:2px">' + bundle.desc + '</div>'
+          + '<div style="margin-top:4px;display:flex;align-items:center;justify-content:center;gap:4px">'
+            + '<span style="font-size:' + tokenFontSize + 'px;font-weight:900;color:#00f5ff">+' + bundle.tokens + '</span>'
+            + '<span style="font-size:12px">🔮</span>' + bonusTag
+          + '</div></div></div>'
+        + '<div style="margin-bottom:10px;position:relative;z-index:2;flex:1">' + perksHTML + '</div>'
+        + '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:2;margin-top:auto">'
+          + '<div style="font-size:' + priceFontSize + 'px;font-weight:900;color:' + bundle.color + ';' + priceExtra + '">' + bundle.priceDisplay + '</div>'
+          + '<div style="font-size:10px;color:#6b7280">Thanh toán bằng VNĐ</div>'
+          + '<button onclick="buyTokenBundle(\'' + bundle.id + '\')" ' + (bought?'disabled':'')
+            + ' style="width:100%;padding:' + btnPad + ';font-size:' + btnFontSize + ';font-weight:700;border-radius:10px;cursor:' + btnCursor + ';border:2px solid ' + bundle.border + ';background:' + btnBg + ';color:' + btnColor + ';' + btnOpacity + btnAnim + 'letter-spacing:0.5px">'
+            + btnLabel + '</button>'
+        + '</div>';
+    } else {
+      div.innerHTML = particleHTML
+        + '<div style="position:absolute;top:12px;right:12px;background:' + bundle.badgeColor + ';color:#fff;font-size:' + badgeFontSize + ';font-weight:700;padding:' + badgePad + ';border-radius:20px;letter-spacing:1px;z-index:2;' + badgeAnim + '">' + bundle.badge + '</div>'
+        + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;position:relative;z-index:2">'
+          + '<div style="font-size:' + iconSize + 'px;' + iconExtra + '">' + bundle.icon + '</div>'
+          + '<div><div style="font-size:' + nameSize + 'px;font-weight:800;color:' + bundle.color + ';' + nameExtra + '">' + bundle.name + '</div>'
+          + '<div style="font-size:12px;color:#9ca3af;margin-top:3px">' + bundle.desc + '</div>'
+          + '<div style="margin-top:6px;display:flex;align-items:center;gap:6px">'
+            + '<span style="font-size:' + tokenFontSize + 'px;font-weight:900;color:#00f5ff">+' + bundle.tokens + '</span>'
+            + '<span style="font-size:14px">🔮</span>' + bonusTag
+          + '</div></div></div>'
+        + '<div style="margin-bottom:14px;position:relative;z-index:2">' + perksHTML + '</div>'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:relative;z-index:2">'
+          + '<div><div style="font-size:' + priceFontSize + 'px;font-weight:900;color:' + bundle.color + ';' + priceExtra + '">' + bundle.priceDisplay + '</div>'
+          + '<div style="font-size:11px;color:#6b7280">Thanh toán bằng VNĐ</div></div>'
+          + '<button onclick="buyTokenBundle(\'' + bundle.id + '\')" ' + (bought?'disabled':'')
+            + ' style="padding:' + btnPad + ';font-size:' + btnFontSize + ';font-weight:700;border-radius:10px;cursor:' + btnCursor + ';border:2px solid ' + bundle.border + ';background:' + btnBg + ';color:' + btnColor + ';' + btnOpacity + btnAnim + 'letter-spacing:0.5px">'
+            + btnLabel + '</button>'
+        + '</div>';
+    }
+    return div;
+  }
+
+  // Small bundles — square grid (2 columns)
+  var smallGrid = document.createElement('div');
+  smallGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px';
+  smallBundles.forEach(function(bundle) {
+    smallGrid.appendChild(buildTokenBundleCard(bundle, true));
+  });
+  container.appendChild(smallGrid);
+
+  // Large bundles — two rectangles side by side (opposing)
+  var largeSep = document.createElement('div');
+  largeSep.style.cssText = 'text-align:center;margin:8px 0 14px';
+  largeSep.innerHTML = '<div style="font-size:12px;color:#4b5563;letter-spacing:1px">— PREMIUM BUNDLES —</div>';
+  container.appendChild(largeSep);
+
+  var largeRow = document.createElement('div');
+  largeRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px';
+  largeBundles.forEach(function(bundle) {
+    largeRow.appendChild(buildTokenBundleCard(bundle, false));
+  });
+  container.appendChild(largeRow);
+
+  // ── VIP Bundles (mua bằng tiền game) ──
+  var vipTitle = document.createElement('div');
+  vipTitle.style.cssText = 'text-align:center;margin:24px 0 14px';
+  vipTitle.innerHTML = '<div style="font-size:14px;font-weight:700;color:#a78bfa;letter-spacing:2px">💎 VIP BUNDLES TRONG GAME</div>'
+    + '<div style="font-size:11px;color:#6b7280;margin-top:4px">Mua bằng tiền trong game (M$)</div>';
+  container.appendChild(vipTitle);
+
+  VIP_BUNDLES.forEach(function(bundle) {
+    var canBuy = G.money >= bundle.price;
+    var bought = (G.boughtBundles||[]).includes(bundle.id);
+    var div = document.createElement('div');
+    div.style.cssText = 'background:' + bundle.theme + ';border:1px solid ' + bundle.border + '66;border-radius:13px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden';
+    var needMore = (!canBuy && !bought) ? '<div style="font-size:12px;color:#4b5563">Cần thêm ' + fmt(bundle.price - G.money) + '</div>' : '';
+    var btnStyle = 'padding:10px 28px;font-size:15px;font-weight:600;border-radius:8px;cursor:pointer;border:1px solid ' + bundle.border + ';'
+      + 'background:' + (bought ? '#1f2937' : canBuy ? bundle.theme : '#111827') + ';'
+      + 'color:' + (bought ? '#4b5563' : canBuy ? bundle.color : '#374151') + ';'
+      + ((!canBuy || bought) ? 'opacity:0.5;cursor:not-allowed' : '');
+    var perksHTML = '';
+    bundle.perks.forEach(function(p) {
+      perksHTML += '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid ' + bundle.border + '22">'
+        + '<span style="font-size:18px">' + p.icon + '</span>'
+        + '<span style="font-size:14px;color:#e2e8f0">' + p.text + '</span></div>';
+    });
+    div.innerHTML = '<div style="position:absolute;top:12px;right:12px;background:' + bundle.badgeColor + ';color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px">' + bundle.badge + '</div>'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+        + '<div style="font-size:40px">' + bundle.icon + '</div>'
+        + '<div><div style="font-size:18px;font-weight:700;color:' + bundle.color + '">' + bundle.name + '</div>'
+        + '<div style="font-size:13px;color:#6b7280;margin-top:2px">' + bundle.desc + '</div></div></div>'
+      + '<div style="margin-bottom:14px">' + perksHTML + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
+        + '<div><div style="font-size:22px;font-weight:700;color:' + bundle.color + '">$' + bundle.price.toLocaleString() + '</div>' + needMore + '</div>'
+        + '<button onclick="buyVipBundle(\'' + bundle.id + '\')" ' + ((bought||!canBuy)?'disabled':'')
+          + ' style="' + btnStyle + '">' + (bought?'✅ Đã mua':canBuy?'🛒 Mua Ngay':'Chưa đủ tiền') + '</button>'
+      + '</div>';
     container.appendChild(div);
   });
+
+  // ── Factory Bundles (mua bằng Token) ──
+  var factoryTitle = document.createElement('div');
+  factoryTitle.style.cssText = 'text-align:center;margin:24px 0 14px';
+  factoryTitle.innerHTML = '<div style="font-size:15px;font-weight:700;color:#38bdf8;letter-spacing:2px">🏭 FACTORY BUNDLES</div>'
+    + '<div style="font-size:11px;color:#6b7280;margin-top:4px">Mua bằng Token 🔮 · Đặc quyền vĩnh viễn</div>';
+  container.appendChild(factoryTitle);
+
+  FACTORY_BUNDLES.forEach(function(bundle) {
+    var curTok = G.wallet.token || 0;
+    var canBuy = curTok >= bundle.tokenPrice;
+    var bought = (G.boughtBundles||[]).includes(bundle.id);
+    var div = document.createElement('div');
+    // Glow effect for factory bundles
+    var glowColor = bundle.id === 'factory_premium' ? '#a855f755' : '#0ea5e955';
+    div.style.cssText = 'background:' + bundle.theme + ';border:2px solid ' + bundle.border + '88;border-radius:14px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden;'
+      + 'box-shadow:0 0 24px ' + glowColor + ';';
+    if (bundle.id === 'factory_premium') {
+      div.style.cssText += 'animation:factoryPremiumPulse 3s ease-in-out infinite;';
+    }
+    var perksHTML = '';
+    bundle.perks.forEach(function(p) {
+      perksHTML += '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid ' + bundle.border + '22">'
+        + '<span style="font-size:18px">' + p.icon + '</span>'
+        + '<span style="font-size:14px;color:#e2e8f0">' + p.text + '</span></div>';
+    });
+    var needMore = (!canBuy && !bought) ? '<div style="font-size:12px;color:#4b5563">Cần thêm ' + (bundle.tokenPrice - curTok) + ' 🔮</div>' : '';
+    var btnLabel = bought ? '✅ Đã mua' : canBuy ? '🔮 Mua bằng Token' : 'Không đủ Token';
+    var btnStyle = 'padding:10px 24px;font-size:14px;font-weight:700;border-radius:9px;cursor:pointer;'
+      + 'border:2px solid ' + bundle.border + ';'
+      + 'background:' + (bought ? '#1f2937' : canBuy ? 'transparent' : '#111827') + ';'
+      + 'color:' + (bought ? '#4b5563' : canBuy ? bundle.color : '#374151') + ';'
+      + (bought || !canBuy ? 'opacity:0.5;cursor:not-allowed;' : 'box-shadow:0 0 12px ' + bundle.border + '66;');
+    div.innerHTML = '<div style="position:absolute;top:12px;right:12px;background:' + bundle.badgeColor + ';color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px">' + bundle.badge + '</div>'
+      + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">'
+        + '<div style="font-size:40px">' + bundle.icon + '</div>'
+        + '<div><div style="font-size:19px;font-weight:800;color:' + bundle.color + '">' + bundle.name + '</div>'
+        + '<div style="font-size:12px;color:#9ca3af;margin-top:2px">' + bundle.desc + '</div></div></div>'
+      + '<div style="margin-bottom:14px">' + perksHTML + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
+        + '<div>'
+          + '<div style="display:flex;align-items:center;gap:6px">'
+            + '<span style="font-size:26px;font-weight:900;color:' + bundle.color + '">' + bundle.tokenPrice.toLocaleString() + '</span>'
+            + '<span style="font-size:20px">🔮</span>'
+          + '</div>'
+          + needMore
+        + '</div>'
+        + '<button onclick="buyFactoryBundle('' + bundle.id + '')" ' + (bought || !canBuy ? 'disabled' : '') + ' style="' + btnStyle + '">' + btnLabel + '</button>'
+      + '</div>';
+    container.appendChild(div);
+  });
+
+  // Token Exchange Section
+  var exchTitle = document.createElement('div');
+  exchTitle.style.cssText = 'text-align:center;margin:24px 0 14px';
+  exchTitle.innerHTML = '<div style="font-size:14px;font-weight:700;color:#ffd700;letter-spacing:2px">🎫 ĐỔI TOKEN → VÉ TRỐN NỢ</div>'
+    + '<div style="font-size:11px;color:#6b7280;margin-top:4px">1 Token = 1 Vé Trốn Nợ · Dùng để xóa nợ trong Ngân Hàng</div>';
+  container.appendChild(exchTitle);
+  var curTokens2 = G.wallet.token || 0;
+  var curTickets2 = G.debtEvadeTickets || 0;
+  var exchBox = document.createElement('div');
+  exchBox.style.cssText = 'background:linear-gradient(135deg,#1a1500,#2a1f00);border:1px solid #b4530966;border-radius:13px;padding:18px;margin-bottom:14px';
+  exchBox.innerHTML = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+    + '<div style="font-size:32px">🔮</div>'
+    + '<div><div style="font-size:15px;font-weight:700;color:#ffd700">Đổi Token lấy Vé Trốn Nợ</div>'
+    + '<div style="font-size:12px;color:#6b7280;margin-top:2px">Token hiện tại: <span style="color:#00f5ff;font-weight:700">' + curTokens2 + ' 🔮</span>  \u00b7  Vé hiện có: <span style="color:#ffd700;font-weight:700">' + curTickets2 + ' 🎫</span></div></div></div>'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    + '<span style="font-size:13px;color:#9ca3af">Số lượng:</span>'
+    + '<input id="token-exchange-qty" type="number" min="1" max="' + curTokens2 + '" value="1" style="flex:1;background:#0d1117;border:1.5px solid #b4530966;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:14px;outline:none"/>'
+    + '<span style="font-size:13px;color:#6b7280">/ ' + curTokens2 + ' token</span></div>'
+    + '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
+    + '<button onclick="setTokenExchQty(1)" style="padding:4px 10px;background:#111827;border:1px solid #374151;color:#9ca3af;border-radius:5px;cursor:pointer;font-size:11px">1</button>'
+    + '<button onclick="setTokenExchQty(5)" style="padding:4px 10px;background:#111827;border:1px solid #374151;color:#9ca3af;border-radius:5px;cursor:pointer;font-size:11px">5</button>'
+    + '<button onclick="setTokenExchQty(10)" style="padding:4px 10px;background:#111827;border:1px solid #374151;color:#9ca3af;border-radius:5px;cursor:pointer;font-size:11px">10</button>'
+    + '<button onclick="setTokenExchQty(50)" style="padding:4px 10px;background:#111827;border:1px solid #374151;color:#9ca3af;border-radius:5px;cursor:pointer;font-size:11px">50</button>'
+    + '<button onclick="setTokenExchQtyMax()" style="padding:4px 10px;background:#111827;border:1px solid #ffd70044;color:#ffd700;border-radius:5px;cursor:pointer;font-size:11px">MAX</button>'
+    + '</div>'
+    + '<button onclick="exchangeTokenToTicket()" style="width:100%;padding:11px;background:linear-gradient(135deg,#1a1500,#2a1f00);color:#ffd700;border:2px solid #b45309;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🎫 \u0110\u1ed5i Ngay (1 Token = 1 Vé Trốn Nợ)</button>';
+  container.appendChild(exchBox);
+}
+
+function setTokenExchQty(n) {
+  var inp = document.getElementById('token-exchange-qty');
+  if (inp) inp.value = Math.max(1, Math.min(G.wallet.token||0, n));
+}
+function setTokenExchQtyMax() {
+  var inp = document.getElementById('token-exchange-qty');
+  if (inp) inp.value = G.wallet.token || 0;
+}
+function exchangeTokenToTicket() {
+  var inp = document.getElementById('token-exchange-qty');
+  var qty = parseInt(inp ? inp.value : 1) || 1;
+  qty = Math.max(1, qty);
+  if (qty > (G.wallet.token||0)) { showError('Không đủ Token!'); return; }
+  G.wallet.token -= qty;
+  G.debtEvadeTickets = (G.debtEvadeTickets||0) + qty;
+  G.taxEvadeTickets = (G.taxEvadeTickets||0) + qty;
+  for (var t2 = 0; t2 < qty; t2++) {
+    if (G.inventory.length < G.invMaxSlots) {
+      G.inventory.push({ id:'evade_ticket_exc_'+Date.now()+'_'+t2, itemId:'evade_ticket', name:'Vé Trốn Nợ', icon:'🎫', tier:'special', boughtPrice:0, recyclePoints:0, obtainedAt:Date.now(), isTicket:true });
+    }
+  }
+  updateUI(); saveGame(false); renderVipShop();
+  showNotif('🎫 Đổi thành công! +' + qty + ' Vé Trốn Nợ');
+}
+
+function buyFactoryBundle(id) {
+  const bundle = FACTORY_BUNDLES.find(b => b.id === id);
+  if (!bundle) return;
+  if (!G.boughtBundles) G.boughtBundles = [];
+  if (G.boughtBundles.includes(id)) { showError('⚠️ Đã mua bundle này rồi!'); return; }
+  if ((G.wallet.token||0) < bundle.tokenPrice) { showError('🔮 Không đủ Token! Cần ' + bundle.tokenPrice + ' 🔮'); return; }
+
+  G.wallet.token -= bundle.tokenPrice;
+
+  if (id === 'factory_plus') {
+    G.factoryPlus = true;
+    showNotif('🏭 Factory Plus đã kích hoạt! x2 thu nhập, x2 tỉ lệ chợ, +5% token bonus, name tag Sunny!');
+  }
+  if (id === 'factory_premium') {
+    G.factoryPremium = true;
+    showNotif('⚡ Factory Premium đã kích hoạt! x2 thu nhập, x2 tỉ lệ chợ, +10% token bonus, name tag Glitchy!');
+  }
+
+  G.boughtBundles.push(id);
+  updateUI(); saveGame(false);
+  renderVipShop();
 }
 
 function buyVipBundle(id) {
@@ -2308,6 +2910,132 @@ function buyVipBundle(id) {
   renderSlots(); renderShopTabs();
 }
 
+function buyTokenBundle(id) {
+  if (!G.boughtTokenBundles) G.boughtTokenBundles = [];
+  if (G.boughtTokenBundles.indexOf(id) !== -1) { showError('⚠️ Đã mua bundle này rồi!'); return; }
+  var bundle = TOKEN_BUNDLES.find(function(b){ return b.id === id; });
+  if (!bundle) return;
+  // Show popup for code input
+  showTokenBundlePopup(id, bundle);
+}
+
+function showTokenBundlePopup(id, bundle) {
+  // Remove existing popup if any
+  var existing = document.getElementById('token-bundle-popup');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'token-bundle-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  overlay.innerHTML =
+    '<div style="background:linear-gradient(135deg,#0d1117,#111827);border:2px solid ' + bundle.border + '66;border-radius:18px;padding:28px 22px;width:100%;max-width:360px;position:relative;box-shadow:0 0 40px ' + bundle.border + '44">'
+    + '<button onclick="document.getElementById(\'token-bundle-popup\').remove()" style="position:absolute;top:12px;right:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:15px;font-weight:700;line-height:1">✕</button>'
+    + '<div style="text-align:center;margin-bottom:18px">'
+      + '<div style="font-size:44px;margin-bottom:6px">' + bundle.icon + '</div>'
+      + '<div style="font-size:17px;font-weight:800;color:' + bundle.color + ';margin-bottom:4px">' + bundle.name + '</div>'
+      + '<div style="font-size:13px;color:#6b7280">' + bundle.priceDisplay + ' · +' + bundle.tokens + ' 🔮</div>'
+    + '</div>'
+    + '<div style="font-size:13px;color:#9ca3af;margin-bottom:8px">🔑 Nhập mã kích hoạt bundle:</div>'
+    + '<input id="tbpop-code-' + id + '" type="text" placeholder="Nhập mã tại đây..." style="width:100%;padding:11px 14px;background:#0d1117;border:1.5px solid ' + bundle.border + '55;border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:12px" />'
+    + '<div id="tbpop-err-' + id + '" style="font-size:12px;color:#f87171;min-height:16px;margin-bottom:8px;text-align:center"></div>'
+    + '<button onclick="confirmTokenBundleCode(\'' + id + '\')" style="width:100%;padding:13px;background:linear-gradient(135deg,' + bundle.theme.replace('linear-gradient(135deg,','').replace(')','') + ');color:' + bundle.color + ';border:2px solid ' + bundle.border + ';border-radius:12px;cursor:pointer;font-size:15px;font-weight:700;letter-spacing:0.5px">💳 Xác Nhận Mua</button>'
+    + '<div style="font-size:11px;color:#374151;text-align:center;margin-top:10px">Liên hệ admin để nhận mã kích hoạt</div>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+  // Focus input
+  setTimeout(function(){ var inp = document.getElementById('tbpop-code-' + id); if(inp) inp.focus(); }, 100);
+}
+
+function confirmTokenBundleCode(id) {
+  var inp = document.getElementById('tbpop-code-' + id);
+  var errEl = document.getElementById('tbpop-err-' + id);
+  if (!inp || !errEl) return;
+  var code = inp.value.trim().toUpperCase();
+  // Each bundle has its own code format: BUNDLE_ID in uppercase + "-2025"
+  var expectedCode = id.replace('token_','').toUpperCase() + '-2025';
+  if (!code) { errEl.textContent = '⚠️ Vui lòng nhập mã kích hoạt!'; return; }
+  if (code !== expectedCode) { errEl.textContent = '❌ Mã không hợp lệ! Liên hệ admin để nhận mã.'; return; }
+
+  // Code valid — apply effects
+  if (!G.boughtTokenBundles) G.boughtTokenBundles = [];
+  if (G.boughtTokenBundles.indexOf(id) !== -1) { errEl.textContent = '⚠️ Bundle này đã được kích hoạt rồi!'; return; }
+
+  var bundle = TOKEN_BUNDLES.find(function(b){ return b.id === id; });
+  if (!bundle) return;
+  var fx = bundle.effects;
+  // Apply Factory Plus/Premium token bonus
+  let tokenBonus = 0;
+  if (G.factoryPremium) tokenBonus = Math.floor((fx.tokens||0) * 0.10);
+  else if (G.factoryPlus) tokenBonus = Math.floor((fx.tokens||0) * 0.05);
+  G.wallet.token = (G.wallet.token||0) + (fx.tokens||0) + tokenBonus;
+  if (fx.blockAds) { G.adBlockCount = (G.adBlockCount||0) + fx.blockAds; }
+  if (fx.unlockShopTiers && fx.unlockShopTiers.length) {
+    if (!G.unlockedTiers) G.unlockedTiers = [];
+    fx.unlockShopTiers.forEach(function(t){ if (!G.unlockedTiers.includes(t)) G.unlockedTiers.push(t); });
+  }
+  if (fx.permanentSpeedInternet) {
+    G.permanentSpeedInternet = true;
+    G.inetPackage = 'speed';
+    G.inetExpiry = Date.now() + 100*365*24*60*60*1000;
+  }
+  if (fx.freeValuePump) { G.valueMultiplier = (G.valueMultiplier||1) * 2; }
+  if (fx.startBonus) { G.money += fx.startBonus; }
+  if (fx.startBonusMillion) { G.money += fx.startBonusMillion * 1000000; }
+  if (fx.fuelF4) {
+    var fuelF4Type = FUEL_TYPES.find(function(f){ return f.id === 'f4'; });
+    if (fuelF4Type) {
+      G.powerSeconds = (G.powerSeconds||0) + fuelF4Type.seconds * fx.fuelF4;
+      G.totalPowerBought = (G.totalPowerBought||0) + fuelF4Type.seconds * fx.fuelF4;
+      G.powerOutageTriggered = true;
+      powerState = 'normal';
+      try { hideOutageScreen(); applyPowerOutageLock(false); updateProgressBars(); } catch(e){}
+    }
+  }
+  if (fx.fuelF5) {
+    var fuelF5Type = FUEL_TYPES.find(function(f){ return f.id === 'f5'; });
+    if (fuelF5Type) {
+      G.powerSeconds = (G.powerSeconds||0) + fuelF5Type.seconds * fx.fuelF5;
+      G.totalPowerBought = (G.totalPowerBought||0) + fuelF5Type.seconds * fx.fuelF5;
+      G.powerOutageTriggered = true;
+      powerState = 'normal';
+      try { hideOutageScreen(); applyPowerOutageLock(false); updateProgressBars(); } catch(e){}
+    }
+  }
+  if (fx.bonusInvSlots) {
+    G.invMaxSlots = (G.invMaxSlots||50) + fx.bonusInvSlots;
+  }
+  if (fx.taxEvadeTickets) {
+    G.taxEvadeTickets = (G.taxEvadeTickets||0) + fx.taxEvadeTickets;
+    G.debtEvadeTickets = (G.debtEvadeTickets||0) + fx.taxEvadeTickets;
+    // Add tickets as items in inventory
+    for (var t = 0; t < fx.taxEvadeTickets; t++) {
+      if (G.inventory.length < G.invMaxSlots) {
+        G.inventory.push({
+          id: 'evade_ticket_' + Date.now() + '_' + t,
+          itemId: 'evade_ticket',
+          name: 'Vé Trốn Thuế & Nợ',
+          icon: '🎫',
+          tier: 'special',
+          boughtPrice: 0,
+          recyclePoints: 0,
+          obtainedAt: Date.now(),
+          isTicket: true
+        });
+      }
+    }
+  }
+  G.boughtTokenBundles.push(id);
+  updateUI(); saveGame(false);
+  renderVipShop(); renderSlots(); renderShopTabs();
+
+  // Close popup and show success
+  var popup = document.getElementById('token-bundle-popup');
+  if (popup) popup.remove();
+  var bonusMsg = tokenBonus > 0 ? ' (+' + tokenBonus + ' bonus 🔮!)' : '';
+  showNotif('🎉 ' + bundle.name + ' đã được kích hoạt! +' + bundle.tokens + ' 🔮' + bonusMsg);
+}
 /* ┌─────────────────────────────────────────────────────────────────────────┐
    │  MODULE 09 · TERMINAL  —  underground vendors · commands · internet     │
    └─────────────────────────────────────────────────────────────────────────┘ */
@@ -4072,6 +4800,12 @@ function _doRender() {
   if (rateEl)  rateEl.textContent  = fmt(totalRate2 * vm2 * speedMult2) + '/s';
   if (vmEl)    vmEl.textContent    = 'x' + vm2.toFixed(vm2 < 10 ? 2 : vm2 < 1000 ? 1 : 0);
   if (totalEl) totalEl.textContent = fmt(G.totalEarned);
+  // Update token display in titlebar
+  const tokenAmt2 = G.wallet && G.wallet.token ? G.wallet.token : 0;
+  const hdrToken2 = document.getElementById('hdr-token');
+  const hdrTokenVal2 = document.getElementById('hdr-token-val');
+  if (hdrToken2) hdrToken2.style.display = tokenAmt2 > 0 ? 'inline-flex' : 'none';
+  if (hdrTokenVal2) hdrTokenVal2.textContent = tokenAmt2.toLocaleString();
 
   // Progress bars
   const pct = (_progVal * 100).toFixed(1) + '%';
@@ -4636,6 +5370,37 @@ const MAT_ITEMS = [
 
 function getMatCount(id) { return G.matPurchased[id] || 0; }
 
+// Re-apply all mat bonuses from purchase history (called after MAT_ITEMS is defined)
+(function applyAllMatBonusesFromHistory() {
+  if (!window._matPurchasedToReapply) return;
+  const purchased = window._matPurchasedToReapply;
+  window._matPurchasedToReapply = null;
+  // Reset matBonuses to defaults before re-applying
+  const def = defaultState().matBonuses;
+  G.matBonuses.speedBoost     = def.speedBoost;
+  G.matBonuses.slotBoost      = 0;
+  G.matBonuses.lotteryLuckBonus = def.lotteryLuckBonus;
+  G.matBonuses.recycleBoost   = def.recycleBoost;
+  G.matBonuses.powerEfficiency = def.powerEfficiency;
+  // Re-apply each item N times
+  Object.entries(purchased).forEach(([id, count]) => {
+    const item = MAT_ITEMS.find(i => i.id === id);
+    if (!item || !count) return;
+    // For cumulative effects: re-apply count times
+    // But slot expander and network booster have side effects — skip slot/inet re-apply
+    // (ownedSlots and inetExpiry are already saved in G directly)
+    for (let n = 0; n < count; n++) {
+      if (id === 'mat_slotexpander' || id === 'mat_netbooster') {
+        // These are already persisted in G.ownedSlots / G.inetExpiry — only update the bonus counter
+        if (id === 'mat_slotexpander') G.matBonuses.slotBoost = (G.matBonuses.slotBoost||0) + 2;
+        // netbooster: no persistent bonus field needed (inetExpiry already saved)
+      } else {
+        item.apply(G);
+      }
+    }
+  });
+})();
+
 function renderMatShop() {
   const balEl = document.getElementById('matshop-balance');
   if (balEl) balEl.textContent = fmt(G.money);
@@ -4816,8 +5581,8 @@ function triggerOutage() {
 // so the player can buy fuel or manage funds to recover.
 // Automatically switches to the electricity tab when locking.
 function applyPowerOutageLock(locked) {
-  const allowedTabs = ['electricity', 'bank'];
-  const allTabs = ['base','shop','bank','slots','stats','market','inventory','rshop','vipshop','computer','lottery','electricity','matshop'];
+  const allowedTabs = ['electricity', 'bank', 'settings', 'updatelog', 'rank'];
+  const allTabs = ['base','shop','bank','slots','stats','market','inventory','rshop','vipshop','computer','lottery','electricity','matshop','settings','updatelog','rank','tax'];
   allTabs.forEach(tab => {
     if (allowedTabs.includes(tab)) return;
     const el = document.getElementById('tab-' + tab);
@@ -4913,6 +5678,7 @@ function offlineConsoleAction(n) {
     if (G.reservePowerUsed) { return; }
     G.reservePowerUsed = true;
     G.powerSeconds = 15 * 60;
+    G.powerOutageTriggered = true;
     powerState = 'normal';
     hideOutageScreen();
     applyPowerOutageLock(false); // Restore all tabs
@@ -4978,8 +5744,11 @@ function buyFuel(id) {
   G.powerSeconds = (G.powerSeconds||0) + fuel.seconds;
   G.totalPowerBought += fuel.seconds;
   powerState = 'normal';
+  // Mark outage system as active so fuel bar shows immediately
+  G.powerOutageTriggered = true;
   taxIssueBill(fuel.icon + ' ' + fuel.name, fuel.price);
-  showNotif(fuel.icon+' '+fuel.name+' +'+Math.round(fuel.seconds/60)+' phút!');
+  const totalRemaining = G.powerSeconds;
+  showNotif(fuel.icon+' '+fuel.name+' +'+Math.round(fuel.seconds/60)+' phút! ⛽ Còn '+fmtSeconds(totalRemaining)+' xăng');
   // Close overlays and resume game
   hideOutageScreen();
   applyPowerOutageLock(false); // Restore all tabs
@@ -5026,15 +5795,15 @@ function renderElecPanel() {
         <div style="font-size:10px;color:#4b5563;margin-bottom:3px;display:flex;justify-content:space-between">
           <span>Tổng (phút)</span><span id="ep-min-label"></span>
         </div>
-        <div class="power-bar-wrap" style="height:14px;margin-bottom:8px">
-          <div id="ep-bar-min" class="power-bar-fill" style="height:100%;transition:width 1s linear"></div>
+        <div class="power-bar-wrap" style="height:24px;margin-bottom:8px;border-radius:8px">
+          <div id="ep-bar-min" class="power-bar-fill" style="height:100%;transition:width 1s linear;border-radius:8px"></div>
         </div>
         <!-- thanh giây trong phút hiện tại -->
         <div style="font-size:10px;color:#4b5563;margin-bottom:3px;display:flex;justify-content:space-between">
           <span>Giây trong phút này</span><span id="ep-sec-label"></span>
         </div>
-        <div class="power-bar-wrap" style="height:10px;margin-bottom:4px">
-          <div id="ep-bar-sec" class="power-bar-fill" style="height:100%;background:#60a5fa;transition:width 1s linear"></div>
+        <div class="power-bar-wrap" style="height:14px;margin-bottom:4px;border-radius:6px">
+          <div id="ep-bar-sec" class="power-bar-fill" style="height:100%;background:#60a5fa;transition:width 1s linear;border-radius:6px"></div>
         </div>
       ` : `
         <div style="font-size:12px;color:#4b5563;margin-bottom:6px">Hệ thống chạy bình thường</div>
@@ -5043,14 +5812,14 @@ function renderElecPanel() {
           <span>Thời gian đến mất điện</span>
           <span id="ep-countdown-label" style="color:#fbbf24"></span>
         </div>
-        <div class="power-bar-wrap" style="height:14px;margin-bottom:8px">
-          <div id="ep-bar-session-min" class="power-bar-fill" style="height:100%;transition:width 1s linear"></div>
+        <div class="power-bar-wrap" style="height:24px;margin-bottom:8px;border-radius:8px">
+          <div id="ep-bar-session-min" class="power-bar-fill" style="height:100%;transition:width 1s linear;border-radius:8px"></div>
         </div>
         <div style="font-size:10px;color:#4b5563;margin-bottom:3px;display:flex;justify-content:space-between">
           <span>Giây trong phút này</span><span id="ep-sec-session-label"></span>
         </div>
-        <div class="power-bar-wrap" style="height:10px;margin-bottom:4px">
-          <div id="ep-bar-session-sec" class="power-bar-fill" style="height:100%;background:#60a5fa;transition:width 1s linear"></div>
+        <div class="power-bar-wrap" style="height:14px;margin-bottom:4px;border-radius:6px">
+          <div id="ep-bar-session-sec" class="power-bar-fill" style="height:100%;background:#60a5fa;transition:width 1s linear;border-radius:6px"></div>
         </div>
       `}
     </div>
@@ -5068,9 +5837,14 @@ function renderElecPanel() {
     <div class="elec-status-card">
       <div style="font-size:14px;color:#9ca3af;margin-bottom:12px">⛽ Mua Bình Xăng</div>
       ${G.powerOutageTriggered&&G.powerSeconds<=0?`<div style="font-size:12px;color:#f87171;margin-bottom:10px;padding:8px;background:#1a0808;border-radius:6px;border:1px solid #3b1a1a">❌ Đang mất điện — mua xăng để khởi động lại</div>`:''}
+      ${G.powerOutageTriggered&&G.powerSeconds>0?`<div style="font-size:12px;color:#4ade80;margin-bottom:10px;padding:8px;background:#0f1f0f;border-radius:6px;border:1px solid #1e3a1e">⛽ Xăng hiện có: <span style="font-weight:700">${fmtSeconds(G.powerSeconds)}</span></div>`:''}
       ${FUEL_TYPES.map(f => {
         const canAfford = G.money >= f.price;
         const ppm = (f.seconds/60/f.price*1000).toFixed(1);
+        const futureTotal = (G.powerSeconds||0) + f.seconds;
+        const timeLabel = G.powerOutageTriggered
+          ? `<div style="font-size:10px;color:#4ade80;margin-top:2px">→ Sau khi mua: <b>${fmtSeconds(futureTotal)}</b></div>`
+          : `<div style="font-size:10px;color:#6b7280;margin-top:2px">⏱ Thời lượng: <b>${fmtSeconds(f.seconds)}</b></div>`;
         return `<div class="fuel-card ${!canAfford?'fuel-disabled':''} ${f.id==='f3'?'fuel-best':''}" onclick="${canAfford?`buyFuelFromPanel('${f.id}')`:''}" style="border-color:${f.color}44">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-size:26px">${f.icon}</div>
@@ -5079,6 +5853,7 @@ function renderElecPanel() {
                 ${f.badge?`<span style="font-size:9px;background:${f.color}22;color:${f.color};border:1px solid ${f.color}44;padding:1px 6px;border-radius:4px;margin-left:5px">${f.badge}</span>`:''}
               </div>
               <div style="font-size:11px;color:#6b7280">${f.desc} · ${ppm}s/$K</div>
+              ${timeLabel}
             </div>
             <div style="text-align:right">
               <div style="font-size:14px;color:${f.color};font-weight:bold">${fmt(f.price)}</div>
@@ -5169,11 +5944,14 @@ function buyFuelFromPanel(id) {
   G.powerSeconds = (G.powerSeconds||0) + fuel.seconds;
   G.totalPowerBought += fuel.seconds;
   powerState = 'normal';
+  // Mark outage system as active so fuel bar shows immediately
+  G.powerOutageTriggered = true;
   // If power was out, restore
   if (outageOverlayVisible) hideOutageScreen();
   applyPowerOutageLock(false); // Restore all tabs
   taxIssueBill(fuel.icon + ' ' + fuel.name, fuel.price);
-  showNotif(fuel.icon+' '+fuel.name+' +'+Math.round(fuel.seconds/60)+'min điện!');
+  const totalRemaining = G.powerSeconds;
+  showNotif(fuel.icon+' '+fuel.name+' +'+Math.round(fuel.seconds/60)+'min! ⛽ Còn '+fmtSeconds(totalRemaining)+' xăng');
   updateUI();
   renderSlots(); // Update progress bars
   updateProgressBars(); // Khởi động lại animation thanh progress
@@ -5195,41 +5973,41 @@ function fmtSeconds(s) {
 let sessionSecondsPlayed = 0;
 
 setInterval(() => {
-  // Chỉ đếm session time khi có điện (để countdown 30 phút chỉ tính lúc đang chạy)
-  if (hasPower()) {
-    sessionSecondsPlayed += 1;
-  }
-  const sessionMinutes = sessionSecondsPlayed / 60;
-
-  // Warn at 28 minutes of THIS session (only if outage hasn't happened yet)
-  if (!G.powerOutageTriggered && sessionMinutes >= 28 && !G._warnedPower) {
-    G._warnedPower = true;
-    showError('⚠️ Còn ~2 phút điện! Mua xăng ngay tại tab ⚡ Điện!');
-  }
-
-  // Trigger outage at 30 minutes of THIS session
-  if (!G.powerOutageTriggered && sessionMinutes >= 30) {
-    triggerOutage();
-  }
-
-  // Drain power seconds chỉ khi outage đã xảy ra, còn xăng, và KHÔNG phải tắt thủ công
-  if (G.powerOutageTriggered && G.powerSeconds > 0 && !G.manualPowerOff) {
-    const drainRate = (G.matBonuses&&G.matBonuses.powerEfficiency)||1;
+  // --- FUEL DRAIN (luôn drain nếu đã mua xăng, không cần chờ outage) ---
+  if (G.powerSeconds > 0 && !G.manualPowerOff) {
+    // Đánh dấu outage đã triggered ngay khi có xăng để UI hiện thanh xăng
+    if (!G.powerOutageTriggered) {
+      G.powerOutageTriggered = true;
+      // Reset session counter vì giờ dùng fuel hệ
+      sessionSecondsPlayed = 9999; // skip session-based trigger
+    }
+    const drainRate = (G.matBonuses && G.matBonuses.powerEfficiency) || 1;
     G.powerSeconds = Math.max(0, G.powerSeconds - drainRate);
-    // Warn when 5 minutes left
     if (G.powerSeconds === 5*60) showError('⚠️ Còn 5 phút điện! Mua thêm xăng!');
-    if (G.powerSeconds === 60) showError('🔴 Còn 1 phút điện!');
+    if (G.powerSeconds === 60)   showError('🔴 Còn 1 phút điện!');
     if (G.powerSeconds === 0) {
-      // Power just ran out
       powerState = 'outage';
       applyPowerOutageLock(true);
       showOutageScreen();
     }
-    // Update elec tab badge and panel live (no full re-render)
+    updateElecPanelLive();
+
+  } else if (!G.powerOutageTriggered) {
+    // --- SESSION COUNTDOWN (chỉ chạy khi chưa có xăng và chưa từng outage) ---
+    if (hasPower()) sessionSecondsPlayed += 1;
+    const sessionMinutes = sessionSecondsPlayed / 60;
+
+    if (sessionMinutes >= 28 && !G._warnedPower) {
+      G._warnedPower = true;
+      showError('⚠️ Còn ~2 phút điện! Mua xăng ngay tại tab ⚡ Điện!');
+    }
+    if (sessionMinutes >= 30) {
+      triggerOutage();
+    }
     updateElecPanelLive();
   }
 
-  // Always update elec panel live every second (both pre- and post-outage)
+  // Always update elec panel live every second
   updateElecPanelLive();
 
   // Keep "Bật Điện Lại" button fresh when outage overlay is open
@@ -5253,6 +6031,10 @@ setInterval(() => {
 
 // Restore outage screen on page load if power was out (use setTimeout since DOM already loaded for inline scripts)
 setTimeout(() => {
+  // If player has fuel pre-purchased, activate the fuel system
+  if (G.powerSeconds > 0 && !G.powerOutageTriggered) {
+    G.powerOutageTriggered = true;
+  }
   if (G.manualPowerOff) {
     applyPowerOutageLock(true);
     showManualPowerOff();
@@ -5261,6 +6043,9 @@ setTimeout(() => {
     applyPowerOutageLock(true);
     showOutageScreen();
     switchTab('electricity'); // force to electricity tab on load if power is out
+  } else if (G.powerOutageTriggered && G.powerSeconds > 0) {
+    // Has fuel — make sure tabs are unlocked
+    applyPowerOutageLock(false);
   }
 }, 300);
 
@@ -7381,7 +8166,7 @@ function renderRankPanel() {
       <div class="rank-my-row">
         <div class="rank-badge-big">${myRank.icon}</div>
         <div class="rank-my-info">
-          <div class="rank-my-name" style="color:#e2e8f0">Người Chơi</div>
+          <div class="rank-my-name" style="color:#e2e8f0">${getNameTagHTML(G.playerName || 'PlayerName')}</div>
           <div class="rank-my-tier" style="color:${myRank.color};font-weight:800">${myRank.icon} ${myRank.name}</div>
           <div class="rank-my-wealth" style="color:#94a3b8;font-size:12px;margin-top:2px">${fmtW(playerWealth)}</div>
         </div>
@@ -7443,7 +8228,7 @@ function renderRankPanel() {
           <div class="rank-pos-num" style="color:${posNum<=3?['#fde68a','#94a3b8','#fb923c'][posNum-1]:'#374151'};min-width:26px;font-size:13px;font-weight:800">${medal}</div>
           <div style="font-size:20px;flex-shrink:0">${p.avatar}</div>
           <div class="rank-player-info">
-            <div class="rank-player-name" style="${isMe ? 'color:#fde047;font-weight:800' : ''}">${p.name}${isMe ? ' ◀ Bạn' : ''}</div>
+            <div class="rank-player-name" style="${isMe ? 'color:#fde047;font-weight:800' : ''}">${isMe ? getNameTagHTML(G.playerName || 'Bạn') + ' ◀ Bạn' : p.name}</div>
             <div style="font-size:10px;color:#4b5563;margin-top:1px">+${incomeDisplay}/3s</div>
           </div>
           <div style="font-size:12px;font-weight:700;color:${activeTier.color};text-align:right;min-width:72px">${fmtW(p.wealth)}</div>

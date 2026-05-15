@@ -152,7 +152,10 @@
   </div>
   <div class="titlebar">
     <span class="titlebar-left"><i class="ti ti-building-factory-2" aria-hidden="true"></i> Factory</span>
-    <span class="titlebar-right" id="hdr-money">$0.000</span>
+    <span class="titlebar-right" style="display:flex;align-items:center;gap:8px">
+      <span id="hdr-token" style="color:#00f5ff;font-size:13px;font-weight:700;display:none">🔮 <span id="hdr-token-val">0</span></span>
+      <span id="hdr-money">$0.000</span>
+    </span>
   </div>
   <div class="tabs-wrapper">
     <button class="tab-scroll-btn" onclick="scrollTabs(-120)" title="Cuộn trái">&#8249;</button>
@@ -164,11 +167,11 @@
       <div class="main-tab" onclick="switchTab('bank')" id="tab-bank">🏦 Ngân Hàng</div>
       <div class="main-tab" onclick="switchTab('tax')" id="tab-tax">🧾 Thuế</div>
       <div class="main-tab" onclick="switchTab('slots')" id="tab-slots">📦 Slots</div>
-      <div class="main-tab" onclick="switchTab('stats')" id="tab-stats">📊 Stats</div>
+      <div class="main-tab" onclick="switchTab('stats')" id="tab-stats">👤 Profile</div>
       <div class="main-tab" onclick="switchTab('market')" id="tab-market">🏪 Chợ</div>
       <div class="main-tab" onclick="switchTab('inventory')" id="tab-inventory">🎒 Kho đồ</div>
       <div class="main-tab" onclick="switchTab('rshop')" id="tab-rshop">♻️ Tái Chế</div>
-      <div class="main-tab" onclick="switchTab('vipshop')" id="tab-vipshop">👑 ShopVIP</div>
+      <div class="main-tab" onclick="switchTab('vipshop')" id="tab-vipshop">🔮 Token Shop</div>
       <div class="main-tab" onclick="switchTab('computer')" id="tab-computer">💻 Computer</div>
       <div class="main-tab" onclick="switchTab('lottery')" id="tab-lottery">🎰 Sổ Xố</div>
       <div class="main-tab" onclick="switchTab('settings')" id="tab-settings">⚙️ Cài Đặt</div>
@@ -278,8 +281,32 @@
       <div class="slot-expand-grid" id="slot-expand-grid"></div>
     </div>
 
-    <!-- STATS -->
+    <!-- PROFILE (formerly Stats) -->
     <div class="panel" id="panel-stats">
+      <!-- Profile Card -->
+      <div style="background:linear-gradient(135deg,#0d1626,#111f3a);border:1px solid rgba(59,130,246,0.2);border-radius:14px;padding:18px;margin-bottom:14px;position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(59,130,246,0.05),transparent 70%);pointer-events:none"></div>
+        <div style="text-align:center;margin-bottom:14px">
+          <div style="font-size:48px;margin-bottom:8px" id="profile-avatar">🎮</div>
+          <!-- Player Name with name tag effect -->
+          <div id="profile-name-display" style="font-size:22px;font-weight:800;color:#e2e8f0;margin-bottom:4px"></div>
+          <!-- Bio display -->
+          <div id="profile-bio-display" style="font-size:13px;color:#6b7280;margin-bottom:10px;font-style:italic;min-height:18px"></div>
+          <button onclick="openProfileEdit()" style="padding:6px 16px;background:#1e3a5f;color:#60a5fa;border:1px solid #2d5a8f;border-radius:8px;cursor:pointer;font-size:12px">✏️ Chỉnh sửa Profile</button>
+        </div>
+      </div>
+      <!-- Profile Edit Form (hidden by default) -->
+      <div id="profile-edit-form" style="display:none;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:16px;margin-bottom:14px">
+        <div style="font-size:13px;color:#9ca3af;margin-bottom:6px;font-weight:600">✏️ Tên hiển thị</div>
+        <input id="profile-name-input" type="text" maxlength="24" placeholder="PlayerName" style="width:100%;padding:9px 12px;background:#0d1117;border:1.5px solid #374151;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:10px"/>
+        <div style="font-size:13px;color:#9ca3af;margin-bottom:6px;font-weight:600">📝 Bio (tối đa 80 ký tự)</div>
+        <textarea id="profile-bio-input" maxlength="80" placeholder="Giới thiệu bản thân..." style="width:100%;padding:9px 12px;background:#0d1117;border:1.5px solid #374151;border-radius:8px;color:#e2e8f0;font-size:13px;outline:none;box-sizing:border-box;resize:none;height:60px;font-family:inherit"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="saveProfileEdit()" style="flex:1;padding:9px;background:#1e3a5f;color:#60a5fa;border:1px solid #2d5a8f;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">💾 Lưu</button>
+          <button onclick="closeProfileEdit()" style="padding:9px 16px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:8px;cursor:pointer;font-size:13px">Hủy</button>
+        </div>
+      </div>
+      <!-- Stats Grid -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px"><div style="font-size:13px;color:#6b7280;margin-bottom:5px">Total Earned</div><div style="font-size:24px;color:#4ade80;font-weight:500" id="s-total">$0</div></div>
         <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px"><div style="font-size:13px;color:#6b7280;margin-bottom:5px">Income/s</div><div style="font-size:24px;color:#60a5fa;font-weight:500" id="s-rate">$0</div></div>
@@ -436,10 +463,11 @@
     </div>
 
     <!-- VIP SHOP -->    <div class="panel" id="panel-vipshop">
-      <div style="background:linear-gradient(135deg,#1a0a2e,#2a1a1e);border:1px solid #7c3aed66;border-radius:13px;padding:18px;margin-bottom:16px;text-align:center">
-        <div style="font-size:28px;margin-bottom:6px">👑</div>
-        <div style="font-size:18px;font-weight:700;color:#c4b5fd;letter-spacing:1px">SHOPVIP.COM</div>
-        <div style="font-size:12px;color:#7c3aed;margin-top:3px">✅ Uy tín · Hàng chính hãng · Giao ngay</div>
+      <div style="background:linear-gradient(135deg,#001520,#001a2e,#002030);border:1px solid #00f5ff44;border-radius:13px;padding:18px;margin-bottom:16px;text-align:center;position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,#00f5ff0d,transparent 70%);pointer-events:none"></div>
+        <div style="font-size:32px;margin-bottom:6px">🔮</div>
+        <div style="font-size:18px;font-weight:700;color:#00f5ff;letter-spacing:2px">TOKEN SHOP</div>
+        <div style="font-size:11px;color:#0ea5e9;margin-top:4px">✨ Đồng tiền hiếm nhất · Bundles độc quyền · Ưu đãi vĩnh viễn</div>
       </div>
       <div id="vip-bundles"></div>
     </div>
