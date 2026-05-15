@@ -4179,8 +4179,9 @@ function getLotteryMode()  { return G.lotteryMode  || 'jackpot'; }
 function setLotteryMode(m) { G.lotteryMode = m; }
 
 // ── Prize tables ─────────────────────────────────────────────────
-const JACKPOT_MULTS = { 2:1.5*200, 3:3*200, 4:4*200, 5:4.5*200 };
-const MEGA_MULTS    = { 2:1.5*7*200, 3:3*7*200, 4:4*7*200, 5:4.5*7*200 };  // ×7 vs jackpot
+// run = số bóng có giá trị GIỐNG NHAU nhiều nhất (2=đôi, 3=tam, 4=tứ quý, 5=ngũ linh)
+const JACKPOT_MULTS = { 2: 40, 3: 200, 4: 800, 5: 2000 };
+const MEGA_MULTS    = { 2: 280, 3: 1400, 4: 5600, 5: 14000 };
 
 function getMults() { return getLotteryMode()==='mega' ? MEGA_MULTS : JACKPOT_MULTS; }
 
@@ -4191,27 +4192,33 @@ function getMultiplier(run) {
   return base + ((G.matBonuses&&G.matBonuses.lotteryLuckBonus)||0);
 }
 
-// ── Consecutive logic ─────────────────────────────────────────────
-// jackpot: liên kề nếu cách nhau đúng 1 (đơn vị)
-// mega:    liên kề nếu cách nhau đúng 10 (hàng chục)
+// ── Match logic: tìm số xuất hiện nhiều nhất ─────────────────────
+// Trả về số lần xuất hiện nhiều nhất, chỉ tính >= 2 (đôi trở lên)
+function getBestMatch(nums) {
+  const freq = {};
+  nums.forEach(n => { freq[n] = (freq[n]||0) + 1; });
+  let maxCount = 0, winVal = null;
+  Object.entries(freq).forEach(([val, cnt]) => {
+    if (cnt > maxCount || (cnt === maxCount && winVal === null)) {
+      maxCount = cnt; winVal = Number(val);
+    }
+  });
+  return maxCount >= 2 ? { maxCount, winVal } : { maxCount: 0, winVal: null };
+}
+
+// Alias để không phá code cũ gọi getLongestConsecutiveRun
 function getLongestConsecutiveRun(nums) {
-  const step = getLotteryMode()==='mega' ? 10 : 1;
-  const sorted = [...nums].sort((a,b) => a-b);
-  let maxRun = 1, curRun = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] === sorted[i-1] + step) { curRun++; if (curRun>maxRun) maxRun=curRun; }
-    else if (sorted[i] !== sorted[i-1])   { curRun = 1; }
-  }
-  return maxRun;
+  return getBestMatch(nums).maxCount;
 }
 
 // ── Number pool ───────────────────────────────────────────────────
 function generatePool() {
   if (getLotteryMode() === 'mega') {
-    // multiples of 10 from 10 to 990 → 99 numbers
-    return Array.from({length:99}, (_,i) => (i+1)*10);
+    // HARDER x3 cho mega: pool 1-300, rút CÓ TRÙNG (with replacement)
+    return Array.from({length:300}, (_,i) => (i+1)*10);
   }
-  return Array.from({length:99}, (_,i) => i+1); // 1-99
+  // HARDER x3: pool 1-300, rút có thể trùng (with replacement)
+  return Array.from({length:300}, (_,i) => i+1);
 }
 
 // ── Mode switch ───────────────────────────────────────────────────
@@ -4255,14 +4262,14 @@ function renderLotteryModeUI() {
       : 'linear-gradient(135deg,#3a1a5a,#1a1a4a)';
     btn.style.color   = isMega ? '#fbbf24' : '#c4b5fd';
     btn.style.borderColor = isMega ? '#d9770666' : '#7c3aed66';
-    if (!btn.disabled) btn.textContent = isMega ? '🌟 QUAY MEGA365' : '🎰 QUAY JACKPOT365';
+    if (!btn.disabled) btn.textContent = isMega ? '🌟 QUAY MEGA365' : '🎰 QUAY LIVE JACKPOT365';
   }
 
   // Mode labels
   const lbl = document.getElementById('lottery-mode-label');
   const sub = document.getElementById('lottery-mode-sub');
-  if (lbl) { lbl.textContent = isMega ? 'MEGA365' : 'JACKPOT365'; lbl.style.color = isMega ? '#fbbf24' : '#c4b5fd'; }
-  if (sub) sub.textContent = isMega ? 'KẾT QUẢ — MEGA365 (hàng chục)' : 'KẾT QUẢ — JACKPOT365';
+  if (lbl) { lbl.textContent = isMega ? 'MEGA365' : 'LIVE JACKPOT365'; lbl.style.color = isMega ? '#fbbf24' : '#c4b5fd'; }
+  if (sub) sub.textContent = isMega ? 'KẾT QUẢ — MEGA365 (hàng chục)' : 'KẾT QUẢ — LIVE JACKPOT365';
 
   // Prize table
   const tbl = document.getElementById('lottery-prize-table');
@@ -4271,10 +4278,10 @@ function renderLotteryModeUI() {
     const c2 = isMega ? '#fbbf24' : '#4ade80';
     const c3 = isMega ? '#f59e0b' : '#60a5fa';
     const c4 = isMega ? '#fb923c' : '#f59e0b';
-    const desc2 = isMega ? '2 chục liên kề (VD: 10,20)' : '2 số liên kề (VD: 3,4)';
-    const desc3 = isMega ? '3 chục liên kề' : '3 số liên kề';
-    const desc4 = isMega ? '4 chục liên kề' : '4 số liên kề';
-    const desc5 = isMega ? '5 chục liên kề 🌟' : '5 số liên kề 🌟';
+    const desc2 = 'Đôi (2 bóng số giống nhau)';
+    const desc3 = 'Tam (3 bóng số giống nhau)';
+    const desc4 = 'Tứ Quý (4 bóng số giống nhau)';
+    const desc5 = 'NGŨ LINH 🌟 (5 bóng giống nhau)';
     tbl.innerHTML = `
       <div style="background:#0d1117;border:1px solid #1f2937;border-radius:7px;padding:9px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:#6b7280;font-size:12px">${desc2}</span><span style="color:${c2};font-weight:700">×${mults[2]}</span>
@@ -4289,7 +4296,7 @@ function renderLotteryModeUI() {
         <span style="color:${isMega?'#fcd34d':'#a78bfa'};font-size:12px">${desc5}</span><span style="color:${isMega?'#fbbf24':'#e879f9'};font-weight:700">×${mults[5]}</span>
       </div>
       <div style="background:#1a0808;border:1px solid #3b1a1a;border-radius:7px;padding:9px;display:flex;justify-content:space-between;align-items:center;grid-column:span 2">
-        <span style="color:#f87171;font-size:12px">Không liên kề</span><span style="color:#f87171;font-weight:600">Mất 80% tiền cược</span>
+        <span style="color:#f87171;font-size:12px">Không có đôi → thua</span><span style="color:#f87171;font-weight:600">Mất 80% tiền cược</span>
       </div>`;
   }
 }
@@ -4385,9 +4392,10 @@ function spinLottery() {
   const balls = ballsEl ? ballsEl.querySelectorAll('.lball') : [];
   balls.forEach(b => { b.className = 'lball lball-spin'; b.textContent = '?'; });
 
-  // Draw 5 unique numbers from pool
+  // Draw 5 numbers WITH REPLACEMENT from pool (số có thể trùng nhau)
+  // Pool 1-300 (jackpot) hoặc 10-3000 bội 10 (mega) — khó hơn 3x so với cũ
   const pool    = generatePool();
-  const result  = pool.sort(()=>Math.random()-0.5).slice(0,5);
+  const result  = Array.from({length:5}, () => pool[Math.floor(Math.random()*pool.length)]);
   const step    = isMega ? 10 : 1;
 
   const revealDelay = 350;
@@ -4405,20 +4413,15 @@ function spinLottery() {
     const mult = getMultiplier(run);
     const sorted = [...result].sort((a,b)=>a-b);
 
-    // Find best consecutive segment for highlighting
-    let bestStart=0, bestLen=1, curStart=0, curLen=1;
-    for (let i=1; i<sorted.length; i++) {
-      if (sorted[i] === sorted[i-1]+step) { curLen++; }
-      else { curStart=i; curLen=1; }
-      if (curLen>bestLen) { bestLen=curLen; bestStart=curStart-(curLen-1); }
-    }
-    const winNums = new Set(sorted.slice(bestStart, bestStart+bestLen));
+    // Highlight bóng trúng: bóng nào có số bằng winVal
+    const matchInfo = getBestMatch(result);
+    const winVal = matchInfo.winVal;
 
     balls.forEach((b, i) => {
       const num = result[i];
-      if (mult===0)           b.className = 'lball lball-miss';
-      else if (winNums.has(num)) b.className = mult>=(isMega?4.5*7:4.5) ? 'lball lball-jackpot' : 'lball lball-hit';
-      else                    b.className = 'lball lball-idle';
+      if (mult===0)               b.className = 'lball lball-miss';
+      else if (num === winVal)    b.className = run>=5 ? 'lball lball-jackpot' : 'lball lball-hit';
+      else                        b.className = 'lball lball-idle';
     });
 
     let profit=0, msg='', color='';
@@ -4427,20 +4430,25 @@ function spinLottery() {
       profit = Math.floor(bet * mult) - bet;
       G.money += Math.floor(bet * mult);
       const isJackpot = run>=5;
-      const label = isJackpot
-        ? (isMega ? '5 chục liên kề 🌟 MEGA JACKPOT!' : '5 số liên kề 🌟 JACKPOT!')
-        : (isMega ? `${run} chục liên kề` : `${run} số liên kề`);
-      msg   = `✅ ${modeTag}${label} → ×${mult} → +${fmt(profit)}`;
+      const winLabels = { 2:'Đôi', 3:'Tam', 4:'Tứ Quý', 5:'NGŨ LINH 🌟' };
+      const label = `${winLabels[run]||run} số ${winVal}`;
+      const fullLabel = isJackpot
+        ? (isMega ? `NGŨ LINH ${winVal} 🌟 MEGA JACKPOT!` : `NGŨ LINH ${winVal} 🌟 JACKPOT!`)
+        : label;
+      msg   = `✅ ${modeTag}${fullLabel} → ×${mult} → +${fmt(profit)}`;
       color = isJackpot ? (isMega?'#fbbf24':'#e879f9') : run>=4 ? '#f59e0b' : run>=3 ? '#60a5fa' : '#4ade80';
-      showNotif(`🎉 ${label}! +${fmt(profit)}`);
+      showNotif(`🎉 ${fullLabel}! +${fmt(profit)}`);
+      // Trigger fireworks for ANY win
+      _lastLotteryProfit = profit;
+      setTimeout(() => triggerJackpotExplosion(isMega || isJackpot, profit), 400);
       // Đánh thuế trên tiền thắng
       if (profit > 0) taxIssueBill('🎰 Tiền thắng xổ số', Math.floor(bet * mult));
     } else {
       profit = -Math.floor(bet * 0.8);
       G.money += Math.floor(bet * 0.2);
-      msg   = `❌ ${modeTag}Không liên kề → Mất ${fmt(Math.abs(profit))}`;
+      msg   = `❌ ${modeTag}Không có đôi → Mất ${fmt(Math.abs(profit))}`;
       color = '#f87171';
-      showError(`💸 Không liên kề! Mất ${fmt(Math.abs(profit))}`);
+      showError(`💸 Không có đôi! Mất ${fmt(Math.abs(profit))}`);
     }
 
     if (resultEl) { resultEl.textContent = msg; resultEl.style.color = color; }
@@ -4451,7 +4459,7 @@ function spinLottery() {
 
     if (btn) {
       btn.disabled = false;
-      btn.textContent = isMega ? '🌟 QUAY MEGA365' : '🎰 QUAY JACKPOT365';
+      btn.textContent = isMega ? '🌟 QUAY MEGA365' : '🎰 QUAY LIVE JACKPOT365';
     }
     lotterySpinning = false;
     updateUI();
@@ -5567,25 +5575,32 @@ function triggerJackpotExplosion(isMega, profit) {
   const fxEl = document.getElementById('game-jackpot-fx');
   if (fxEl && !fxEl.checked) return;
 
-  textEl.textContent = isMega ? '🌟 MEGA JACKPOT! 🌟' : '🎰 JACKPOT! 🎰';
+  // Scale text based on win level
+  if (isMega) {
+    textEl.textContent = '🌟 MEGA JACKPOT! 🌟';
+  } else if (isBigWin) {
+    textEl.textContent = '🎉 JACKPOT! 🎉';
+  } else {
+    textEl.textContent = '🎊 TRÚNG THƯỞNG! 🎊';
+  }
   container.innerHTML = '';
 
-  // ── Confetti (more pieces for big win) ──
-  const pieces = isBigWin ? 180 : 80;
+  // ── Confetti (scale with win size) ──
+  const pieces = isBigWin ? 180 : 60;
   const colors = isBigWin
     ? ['#e879f9','#60a5fa','#4ade80','#fbbf24','#f87171','#a78bfa','#fde68a','#34d399','#fb923c','#fff']
-    : ['#e879f9','#60a5fa','#4ade80','#fbbf24','#f87171','#a78bfa','#fde68a'];
+    : ['#4ade80','#60a5fa','#fbbf24','#a78bfa','#fde68a'];
   for (let i = 0; i < pieces; i++) {
     const piece = document.createElement('div');
     piece.className = 'confetti-piece';
     piece.style.cssText = [
       'left:' + Math.random()*100 + '%',
       'background:' + colors[Math.floor(Math.random()*colors.length)],
-      'width:' + (isBigWin ? 5+Math.random()*12 : 6+Math.random()*8) + 'px',
-      'height:' + (isBigWin ? 5+Math.random()*12 : 6+Math.random()*8) + 'px',
+      'width:' + (isBigWin ? 5+Math.random()*12 : 4+Math.random()*8) + 'px',
+      'height:' + (isBigWin ? 5+Math.random()*12 : 4+Math.random()*8) + 'px',
       'border-radius:' + (Math.random()>0.5?'50%':'2px'),
-      '--dur:' + (isBigWin ? 2+Math.random()*3 : 1.5+Math.random()*2) + 's',
-      '--delay:' + (Math.random()*(isBigWin?1.5:0.8)) + 's',
+      '--dur:' + (isBigWin ? 2+Math.random()*3 : 1.2+Math.random()*1.8) + 's',
+      '--delay:' + (Math.random()*(isBigWin?1.5:0.6)) + 's',
     ].join(';');
     container.appendChild(piece);
   }
@@ -5596,7 +5611,7 @@ function triggerJackpotExplosion(isMega, profit) {
     _triggerBigWinEffects(isMega, profit);
   }
 
-  const duration = isBigWin ? 5500 : 3200;
+  const duration = isBigWin ? 5500 : 2500;
   setTimeout(() => {
     overlay.style.display = 'none';
     container.innerHTML = '';
@@ -5760,12 +5775,7 @@ const _origShowNotif = showNotif;
 let _lastLotteryProfit = 0;
 window.showNotif = function(msg) {
   _origShowNotif(msg);
-  // Detect jackpot win from notification
-  if (msg.includes('JACKPOT') || msg.includes('Jackpot')) {
-    const isMega = msg.includes('MEGA');
-    const profit = _lastLotteryProfit;
-    setTimeout(() => triggerJackpotExplosion(isMega, profit), 400);
-  }
+  // Note: jackpot explosion is now triggered directly inside spinLottery for all win levels
 };
 
 // Patch spinLottery to capture profit before showNotif fires
