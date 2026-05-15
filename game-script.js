@@ -4035,79 +4035,31 @@ function scrollTabs(delta) {
 // ═══ OPTIMIZED MAIN GAME LOOP ════════════════════════════════════
 // ═══ FPS LOCKER ═══════════════════════════════════════════════════
 // Target FPS setting — saved to localStorage, default 30
+//
+// ARCHITECTURE (fixed):
+//   • requestAnimationFrame fires at the monitor refresh rate (≤ 60 Hz on most screens).
+//     At 120 FPS, _fpsInterval = 8.33 ms but RAF only ticks every ~16.67 ms, so the
+//     old single-RAF design made 120 FPS identical to 60 FPS — no extra CPU/GPU load.
+//
+//   • FIX: rendering is extracted into _doRender().
+//     ┌──────────┬───────────────────────────────────────────────────────────────┐
+//     │  30 FPS  │ RAF loop, render every other frame (~33 ms)                  │
+//     │  60 FPS  │ RAF loop, render every frame (~16.7 ms)                      │
+//     │ 120 FPS  │ setInterval at 8.33 ms → actually bypasses 60 Hz RAF cap;   │
+//     │          │ renders 2× per monitor frame → genuinely doubles CPU/GPU use │
+//     └──────────┴───────────────────────────────────────────────────────────────┘
 const FPS_KEY = 'factory_fps_target';
-let _fpsTarget = 30;
-let _fpsInterval = 1000 / _fpsTarget; // ms per frame budget
+let _fpsTarget   = 30;
+let _fpsInterval = 1000 / _fpsTarget; // ms per frame budget (used by RAF path)
+let _renderIntervalId = null;         // setInterval handle for 120 FPS mode
 
-function setFpsTarget(fps) {
-  fps = parseInt(fps);
-  if (![30, 60, 120].includes(fps)) fps = 30;
-  _fpsTarget = fps;
-  _fpsInterval = 1000 / fps;
-  try { localStorage.setItem(FPS_KEY, fps); } catch(e) {}
-  // Update UI buttons
-  [30, 60, 120].forEach(f => {
-    const btn = document.getElementById('fps-btn-' + f);
-    if (btn) btn.classList.toggle('fps-btn--active', f === fps);
-  });
-  const lbl = document.getElementById('fps-current-label');
-  if (lbl) lbl.textContent = fps + ' FPS';
-}
-
-function loadFpsTarget() {
-  let saved = 30;
-  try { saved = parseInt(localStorage.getItem(FPS_KEY)) || 30; } catch(e) {}
-  if (![30, 60, 120].includes(saved)) saved = 30;
-  setFpsTarget(saved);
-}
-
-// Single RAF-based loop replaces the old 100ms setInterval for money/progress
-let _progVal = 0;        // progress 0→1 over 10s cycle
-let _lastTick = 0;       // timestamp of last processed frame
-let _lastRender = 0;     // timestamp of last render (for FPS throttle)
-
-// _gameLoop(now) — FPS-throttled RAF loop.
-// Game LOGIC (money, power) runs every frame using delta-time — always accurate.
-// DOM RENDER is throttled to _fpsTarget so cheap hardware isn't hammered.
-function _gameLoop(now) {
-  requestAnimationFrame(_gameLoop);
-
-  // ── Init ──
-  if (!_lastTick) { _lastTick = now; _lastRender = now; return; }
-
-  const dt = Math.min((now - _lastTick) / 1000, 0.2); // seconds, capped 200ms
-  _lastTick = now;
-
-  // ── GAME LOGIC — always runs every RAF frame (delta-time keeps accuracy) ──
-  if (hasPower()) {
-    const vm = G.valueMultiplier || 1;
-    const speedMult = (G.matBonuses && G.matBonuses.speedBoost) || 1;
-    let totalRate = 0;
-    G.slots.forEach(s => { if (s && ALL_M[s.machine]) totalRate += ALL_M[s.machine].rate; });
-    const earned = totalRate * vm * speedMult * dt;
-
-    if (earned > 0) {
-      G.money = Math.min(G.money + earned, 999e12);
-      G.totalEarned += earned;
-      G.playedSeconds += dt;
-      G.valueMultiplier = 1.0 * Math.pow(1 + 0.01/60, G.playedSeconds);
-    }
-
-    // Advance progress bar value (logic only, render below)
-    _progVal = (_progVal + dt / 10) % 1;
-  }
-
-  // ── FPS THROTTLE — DOM writes only happen at target FPS ──
-  const elapsed = now - _lastRender;
-  if (elapsed < _fpsInterval - 0.5) return; // 0.5ms tolerance
-  _lastRender = now - (elapsed % _fpsInterval); // drift correction
-
+// ── _doRender() — all DOM writes live here, called by RAF (30/60) or setInterval (120) ──
+function _doRender() {
   if (!hasPower()) return;
 
-  // Money display update
-  const vm2 = G.valueMultiplier || 1;
+  const vm2        = G.valueMultiplier || 1;
   const speedMult2 = (G.matBonuses && G.matBonuses.speedBoost) || 1;
-  let totalRate2 = 0;
+  let   totalRate2 = 0;
   G.slots.forEach(s => { if (s && ALL_M[s.machine]) totalRate2 += ALL_M[s.machine].rate; });
 
   const moneyEl = document.getElementById('mb-dollar');
@@ -4129,6 +4081,88 @@ function _gameLoop(now) {
     const el = document.getElementById('pg' + i);
     if (el) el.style.width = pct;
   }
+}
+
+function setFpsTarget(fps) {
+  fps = parseInt(fps);
+  if (![30, 60, 120].includes(fps)) fps = 30;
+  _fpsTarget   = fps;
+  _fpsInterval = 1000 / fps;
+  try { localStorage.setItem(FPS_KEY, fps); } catch(e) {}
+
+  // Update UI buttons
+  [30, 60, 120].forEach(f => {
+    const btn = document.getElementById('fps-btn-' + f);
+    if (btn) btn.classList.toggle('fps-btn--active', f === fps);
+  });
+  const lbl = document.getElementById('fps-current-label');
+  if (lbl) lbl.textContent = fps + ' FPS';
+
+  // ── 120 FPS: launch a dedicated setInterval to push renders past the 60 Hz RAF cap ──
+  // ── 30/60 FPS: clear any existing interval; rendering handled inside RAF loop       ──
+  if (_renderIntervalId !== null) {
+    clearInterval(_renderIntervalId);
+    _renderIntervalId = null;
+  }
+  if (fps === 120) {
+    // Interval of ~8.33 ms → ~120 renders/sec regardless of monitor refresh rate.
+    // This genuinely doubles DOM paint calls vs 60 FPS, forcing extra CPU/GPU work.
+    _renderIntervalId = setInterval(_doRender, 1000 / 120);
+  }
+}
+
+function loadFpsTarget() {
+  let saved = 30;
+  try { saved = parseInt(localStorage.getItem(FPS_KEY)) || 30; } catch(e) {}
+  if (![30, 60, 120].includes(saved)) saved = 30;
+  setFpsTarget(saved);
+}
+
+// ── Game loop state ────────────────────────────────────────────────
+let _progVal    = 0;  // progress 0→1 over 10 s cycle
+let _lastTick   = 0;  // timestamp of last logic tick
+let _lastRender = 0;  // timestamp of last RAF render (30/60 FPS path)
+
+// _gameLoop(now) — RAF loop.
+//   GAME LOGIC  : runs every RAF frame (delta-time keeps money/power always accurate).
+//   DOM RENDER  : throttled to _fpsTarget for 30 & 60 FPS.
+//                 Skipped entirely for 120 FPS (setInterval handles it above).
+function _gameLoop(now) {
+  requestAnimationFrame(_gameLoop);
+
+  // ── Init on first frame ──
+  if (!_lastTick) { _lastTick = now; _lastRender = now; return; }
+
+  const dt = Math.min((now - _lastTick) / 1000, 0.2); // seconds, capped at 200 ms
+  _lastTick = now;
+
+  // ── GAME LOGIC — always runs every RAF frame (delta-time keeps accuracy) ──
+  if (hasPower()) {
+    const vm        = G.valueMultiplier || 1;
+    const speedMult = (G.matBonuses && G.matBonuses.speedBoost) || 1;
+    let   totalRate = 0;
+    G.slots.forEach(s => { if (s && ALL_M[s.machine]) totalRate += ALL_M[s.machine].rate; });
+    const earned = totalRate * vm * speedMult * dt;
+
+    if (earned > 0) {
+      G.money             = Math.min(G.money + earned, 999e12);
+      G.totalEarned      += earned;
+      G.playedSeconds    += dt;
+      G.valueMultiplier   = 1.0 * Math.pow(1 + 0.01 / 60, G.playedSeconds);
+    }
+
+    // Advance progress bar accumulator (rendered below or by interval)
+    _progVal = (_progVal + dt / 10) % 1;
+  }
+
+  // ── DOM RENDER — 30 / 60 FPS path (120 FPS uses setInterval above, skip here) ──
+  if (_fpsTarget === 120) return;
+
+  const elapsed = now - _lastRender;
+  if (elapsed < _fpsInterval - 0.5) return;          // not yet time for next frame
+  _lastRender = now - (elapsed % _fpsInterval);       // drift-corrected timestamp
+
+  _doRender();
 }
 
 // Load saved FPS before starting loop
