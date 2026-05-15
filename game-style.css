@@ -1433,6 +1433,8 @@ div[style*="Auto-save"] {
   display: block;
   visibility: hidden;
   min-height: 0;
+  height: 0;
+  overflow: hidden;
 }
 .panel.active {
   opacity: 1;
@@ -1440,6 +1442,8 @@ div[style*="Auto-save"] {
   pointer-events: auto;
   position: relative;
   visibility: visible;
+  height: auto;
+  overflow: visible;
 }
 
 /* ── CONTENT BOTTOM PADDING (for sound bar) ── */
