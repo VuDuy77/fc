@@ -1,0 +1,895 @@
+<!--
+  =============================================================================
+  FACTORY GAME  v3.3.0  — Multi-file edition
+  =============================================================================
+  File structure:
+    index.html     — HTML shell + game body markup
+    game-style.css — All CSS (1500+ lines)
+    game-script.js — All JS modules (7500+ lines)
+
+  PLAYER GOALS
+  1. Buy machines → earn passive income every tick (requestAnimationFrame loop).
+  2. Manage electricity: the factory needs fuel to keep running.
+  3. Trade items on the Market and Black-Market Terminal.
+  4. Pay taxes on time or get banned from purchases.
+  5. Climb the Rank leaderboard, win the Lottery, upgrade the OS.
+  6. Reach the wealth cap (~$999 Trillion) to win.
+  =============================================================================
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factory Game v3.3.0</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="game-style.css">
+</head>
+<body>
+<div id="game">
+
+  <!-- ══ SOUND BAR ══
+       Collapsible music player bar at the bottom of the screen.
+       Players upload their own MP3 files for background music and jackpot SFX.
+       Hidden by default; shown when the player enables it in Settings. -->
+  <div class="sound-bar hidden" id="sound-bar">
+    <span class="sound-icon" id="sound-toggle-btn" onclick="toggleSoundBar()" title="Thu/mở">🎵</span>
+    <div class="sound-track">
+      <div class="sound-name" id="sound-name">Chưa có nhạc — tải file MP3</div>
+      <div class="sound-wave" id="sound-wave" style="display:none">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+    <input type="range" class="sound-vol" id="sound-vol" min="0" max="1" step="0.05" value="0.5" oninput="setSoundVol(this.value)" title="Âm lượng">
+    <button class="sound-btn" onclick="toggleSoundPlay()" id="sound-play-btn">▶ Play</button>
+    <button class="sound-btn" onclick="document.getElementById('sound-file-tab').click()">📁 Nhạc Tab</button>
+    <button class="sound-btn" onclick="document.getElementById('sound-file-jackpot').click()">🎰 Nhạc JP</button>
+    <input type="file" id="sound-file-tab" class="sound-upload" accept="audio/*" onchange="loadSoundFile(this,'tab')">
+    <input type="file" id="sound-file-jackpot" class="sound-upload" accept="audio/*" onchange="loadSoundFile(this,'jackpot')">
+    <button class="sound-btn" onclick="hideSoundBar()" title="Ẩn">✕</button>
+  </div>
+
+  <!-- ══ JACKPOT OVERLAY ══
+       Full-screen celebration overlay triggered when the player hits jackpot.
+       Layers (bottom to top, each a separate DOM element):
+         #jackpot-flash         — white/pink screen flash
+         #jackpot-shockwave     — expanding ring pulse
+         #jackpot-lasers        — radial laser beams
+         #jackpot-fireworks     — rockets + spark bursts
+         #jackpot-money-rain    — falling money emojis
+         #jackpot-bigwin-banner — "BIG WIN" text banner
+         .jackpot-profit-float  — floating "+$xxx" amount text
+       All elements are hidden (display:none) and activated by triggerJackpot(). -->
+  <div id="jackpot-overlay">
+    <div class="jackpot-bg"></div>
+    <div class="jackpot-text" id="jackpot-text">🎰 JACKPOT! 🎰</div>
+    <div class="confetti-container" id="confetti-container"></div>
+  </div>
+
+  <!-- BIG WIN EXTRA FX — individual effect layers injected here,
+       each independently animated via CSS keyframes. -->
+  <div id="jackpot-flash"></div>
+  <div id="jackpot-shockwave"></div>
+  <div id="jackpot-lasers"></div>
+  <div id="jackpot-fireworks"></div>
+  <div id="jackpot-money-rain"></div>
+  <div id="jackpot-bigwin-banner"></div>
+
+  <!-- ══ TUTORIAL OVERLAY ══ -->
+  <div id="tutorial-overlay" style="display:none">
+    <div class="tut-box">
+      <div class="tut-header">
+        <div class="tut-logo">🏭</div>
+        <div class="tut-game-title">FACTORY GAME</div>
+        <div class="tut-welcome">Chào mừng bạn mới! Hãy đọc hướng dẫn nhanh này.</div>
+      </div>
+      <div class="tut-progress-bar"><div class="tut-progress-fill" id="tut-progress" style="width:14%"></div></div>
+      <div class="tut-step-indicator" id="tut-dots"></div>
+      <!-- STEP 1 -->
+      <div class="tut-step visible" id="tut-step-0">
+        <div class="tut-step-icon">🎮</div>
+        <div class="tut-step-title">Chào mừng đến Factory!</div>
+        <div class="tut-step-body">Bạn sẽ xây dựng một <strong>đế chế công nghiệp</strong> từ chiếc máy đầu tiên.<br><br>Mục tiêu: kiếm càng nhiều tiền càng tốt, mua máy mạnh hơn, mở rộng sản xuất!</div>
+        <div class="tut-tip"><strong>💡 Mẹo:</strong> Game tự động lưu tiến trình. Bạn có thể quay lại bất cứ lúc nào!</div>
+      </div>
+      <!-- STEP 2 -->
+      <div class="tut-step" id="tut-step-1">
+        <div class="tut-step-icon">🏠</div>
+        <div class="tut-step-title">Tab Base — Trung tâm sản xuất</div>
+        <div class="tut-step-body">Tab <strong>Base</strong> là nơi bạn thấy tất cả máy móc đang chạy.<br><br>Mỗi máy có <strong>thanh tiến trình</strong> — khi đầy, máy tự thu tiền. Hệ số <strong>💹</strong> tăng theo thời gian chơi!</div>
+        <div class="tut-tip"><strong>💡 Mẹo:</strong> Thanh màu <span style="color:#4ade80">xanh</span> = máy đang chạy tốt. Giữ máy chạy liên tục để tối đa lợi nhuận!</div>
+      </div>
+      <!-- STEP 3 -->
+      <div class="tut-step" id="tut-step-2">
+        <div class="tut-step-icon">🛒</div>
+        <div class="tut-step-title">Tab Shop — Mua máy mới</div>
+        <div class="tut-step-body">Dùng tiền kiếm được để <strong>mua máy mạnh hơn</strong> trong Shop.<br><br>Có <strong>10 Tier</strong> máy từ yếu đến siêu mạnh. Mỗi Tier phải được mở khóa bằng số tiền nhất định.</div>
+        <ul class="tut-checklist">
+          <li><span>⚙️</span><div>Tier 1–3: Máy cơ bản, giá rẻ, dễ mua</div></li>
+          <li><span>⚡</span><div>Tier 4–6: Máy trung cấp, hiệu quả cao hơn</div></li>
+          <li><span>🌌</span><div>Tier 7–10: Máy siêu cấp, thu nhập khủng</div></li>
+        </ul>
+      </div>
+      <!-- STEP 4 -->
+      <div class="tut-step" id="tut-step-3">
+        <div class="tut-step-icon">⚡</div>
+        <div class="tut-step-title">Điện & Ngân Hàng</div>
+        <div class="tut-step-body"><strong>⚡ Điện:</strong> Sau 30 phút chơi, điện sẽ tắt! Mua nhiên liệu để duy trì hoạt động sản xuất.<br><br><strong>🏦 Ngân Hàng:</strong> Đổi tiền sang vàng, xu, kim cương. Có thể <strong>vay tiền</strong> nhưng hãy trả đúng hạn!</div>
+        <div class="tut-tip"><strong>⚠️ Cảnh báo:</strong> Không trả nợ đúng hạn sẽ bị khóa tính năng và phá sản!</div>
+      </div>
+      <!-- STEP 5 -->
+      <div class="tut-step" id="tut-step-4">
+        <div class="tut-step-icon">🏪</div>
+        <div class="tut-step-title">Chợ & Kho Đồ</div>
+        <div class="tut-step-body"><strong>🏪 Chợ:</strong> Mua/bán vật phẩm với người chơi khác. Có 3 loại chợ: phổ thông, giá rẻ và chợ đen!<br><br><strong>🎒 Kho Đồ:</strong> Lưu trữ vật phẩm bạn mua. Tối đa 50 slot, có thể mở rộng thêm.</div>
+        <div class="tut-tip"><strong>💡 Mẹo:</strong> Chợ đen có giá rẻ nhất (~36%) nhưng hàng không đảm bảo chất lượng 100%!</div>
+      </div>
+      <!-- STEP 6 -->
+      <div class="tut-step" id="tut-step-5">
+        <div class="tut-step-icon">🎰</div>
+        <div class="tut-step-title">Tính Năng Đặc Biệt</div>
+        <div class="tut-step-body">Game còn nhiều tính năng thú vị để khám phá:</div>
+        <ul class="tut-checklist">
+          <li><span>🎰</span><div><strong>Sổ Xố</strong> — Đặt cược, trúng jackpot x200!</div></li>
+          <li><span>💻</span><div><strong>Computer</strong> — Terminal kiếm thêm thu nhập</div></li>
+          <li><span>🧪</span><div><strong>Nguyên Liệu</strong> — Nâng cấp máy, tăng tốc độ</div></li>
+          <li><span>🧾</span><div><strong>Thuế</strong> — Đóng thuế đúng hạn, tránh bị phạt</div></li>
+          <li><span>👑</span><div><strong>Premium</strong> — Xóa quảng cáo, lưu cloud</div></li>
+        </ul>
+      </div>
+      <!-- STEP 7 -->
+      <div class="tut-step" id="tut-step-6">
+        <div class="tut-step-icon">🚀</div>
+        <div class="tut-step-title">Bạn đã sẵn sàng!</div>
+        <div class="tut-step-body">Chiếc máy <strong>Begin Machine</strong> đầu tiên đã được lắp sẵn. Hãy chờ nó tích đủ tiền rồi vào <strong>Shop</strong> mua máy tốt hơn!<br><br>Chúc bạn xây dựng đế chế thành công! 🏭💪</div>
+        <div class="tut-tip"><strong>💡 Tip:</strong> Vào tab <strong>Stats</strong> → nút <em>Hướng Dẫn</em> để xem lại hướng dẫn bất cứ lúc nào.</div>
+      </div>
+      <div class="tut-nav" id="tut-nav">
+        <button class="tut-btn-back" id="tut-back-btn" onclick="tutBack()" style="display:none">← Quay lại</button>
+        <button class="tut-btn-next" id="tut-next-btn" onclick="tutNext()">Tiếp theo →</button>
+      </div>
+    </div>
+  </div>
+  <div class="titlebar">
+    <span class="titlebar-left"><i class="ti ti-building-factory-2" aria-hidden="true"></i> Factory</span>
+    <span class="titlebar-right" id="hdr-money">$0.000</span>
+  </div>
+  <div class="tabs-wrapper">
+    <button class="tab-scroll-btn" onclick="scrollTabs(-120)" title="Cuộn trái">&#8249;</button>
+    <div class="main-tabs" id="main-tabs-el">
+      <div class="main-tab active" onclick="switchTab('base')" id="tab-base">🏠 Base</div>
+      <div class="main-tab" onclick="switchTab('shop')" id="tab-shop">🛒 Shop</div>
+      <div class="main-tab" onclick="switchTab('matshop')" id="tab-matshop">🧪 Nguyên Liệu</div>
+      <div class="main-tab" onclick="switchTab('electricity')" id="tab-electricity">⚡ Điện</div>
+      <div class="main-tab" onclick="switchTab('bank')" id="tab-bank">🏦 Ngân Hàng</div>
+      <div class="main-tab" onclick="switchTab('tax')" id="tab-tax">🧾 Thuế</div>
+      <div class="main-tab" onclick="switchTab('slots')" id="tab-slots">📦 Slots</div>
+      <div class="main-tab" onclick="switchTab('stats')" id="tab-stats">📊 Stats</div>
+      <div class="main-tab" onclick="switchTab('market')" id="tab-market">🏪 Chợ</div>
+      <div class="main-tab" onclick="switchTab('inventory')" id="tab-inventory">🎒 Kho đồ</div>
+      <div class="main-tab" onclick="switchTab('rshop')" id="tab-rshop">♻️ Tái Chế</div>
+      <div class="main-tab" onclick="switchTab('vipshop')" id="tab-vipshop">👑 ShopVIP</div>
+      <div class="main-tab" onclick="switchTab('computer')" id="tab-computer">💻 Computer</div>
+      <div class="main-tab" onclick="switchTab('lottery')" id="tab-lottery">🎰 Sổ Xố</div>
+      <div class="main-tab" onclick="switchTab('settings')" id="tab-settings">⚙️ Cài Đặt</div>
+      <div class="main-tab" onclick="switchTab('updatelog')" id="tab-updatelog">📋 Update Log</div>
+      <div class="main-tab" onclick="switchTab('rank')" id="tab-rank">🏆 Rank</div>
+    </div>
+    <button class="tab-scroll-btn" onclick="scrollTabs(120)" title="Cuộn phải">&#8250;</button>
+  </div>
+  <div class="content">
+    <!-- BASE -->
+    <div class="panel active" id="panel-base">
+      <div class="money-bar">
+        <div class="mb-item"><div class="mb-label">$</div><div class="mb-val" style="color:#4ade80" id="mb-dollar">$0.000</div></div>
+        <div class="mb-item"><div class="mb-label">xu</div><div class="mb-val" style="color:#fbbf24" id="mb-xu">0 xu</div></div>
+        <div class="mb-item"><div class="mb-label">gold</div><div class="mb-val" style="color:#f59e0b" id="mb-gold">0 gold</div></div>
+        <div class="mb-item"><div class="mb-label">rate</div><div class="mb-val" style="color:#60a5fa" id="mb-rate">$0/s</div></div>
+        <div class="mb-item"><div class="mb-label">💹 hệ số</div><div class="mb-val" style="color:#f59e0b" id="mb-vmult">x1.00</div></div>
+        <div class="mb-item" style="margin-left:auto"><div class="mb-label">total</div><div class="mb-val" style="color:#9ca3af" id="mb-total">$0</div></div>
+      </div>
+      <div style="font-size:14px;color:#4b5563;margin-bottom:12px;padding:9px 14px;background:#111827;border:1px solid #1f2937;border-radius:8px;display:flex;gap:14px">
+        <span><i class="ti ti-cpu" aria-hidden="true"></i> <span id="mc-count">1</span> machines</span>
+        <span><i class="ti ti-maximize" aria-hidden="true"></i> <span id="mc-slots">1</span> slots</span>
+        <span><i class="ti ti-device-floppy" aria-hidden="true"></i> Auto-save</span>
+      </div>
+      <div class="slots-grid" id="slots-grid"></div>
+    </div>
+
+    <!-- SHOP -->
+    <div class="panel" id="panel-shop">
+      <!-- LOAN AD BANNER -->
+      <div class="loan-ad-banner" id="ad-loan" style="display:none" onclick="goToLoan()">
+        <button class="ad-dismiss-btn" onclick="event.stopPropagation();dismissAd('loan')">✕ $5</button>
+        <div class="loan-ad-logo">🏦</div>
+        <div class="loan-ad-tag">🏦 Ngân Hàng · Ưu Đãi Đặc Biệt</div>
+        <div class="loan-ad-title">Thiếu vốn kinh doanh?<br><span>Vay ngay — Giải ngân tức thì!</span></div>
+        <div class="loan-ad-sub">Mở rộng cơ sở sản xuất không giới hạn. Vay tiền nhanh, không cần thế chấp.</div>
+        <div class="loan-ad-features">
+          <div class="loan-ad-feature"><span class="laf-icon">⚡</span> Giải ngân ngay</div>
+          <div class="loan-ad-feature"><span class="laf-icon">📈</span> Hạn mức linh hoạt</div>
+          <div class="loan-ad-feature"><span class="laf-icon">🔓</span> Không thế chấp</div>
+        </div>
+        <button class="loan-ad-btn" onclick="event.stopPropagation();goToLoan()">💳 VAY NGAY</button>
+        <div class="loan-ad-rate"><div class="loan-ad-rate-val">$$$</div><div class="loan-ad-rate-label">VỐN NHANH</div></div>
+      </div>
+      <!-- LOTTERY AD BANNER -->
+      <div class="lottery-ad-banner" id="ad-lottery" style="display:none" onclick="switchTab('lottery')">
+        <button class="ad-dismiss-btn" onclick="event.stopPropagation();dismissAd('lottery')" style="background:#160a2a;border-color:#4c1d95">✕ $5</button>
+        <div class="lottery-ad-stars" id="lott-ad-stars"></div>
+        <div class="lottery-ad-jackpot">
+          <div class="lottery-ad-jackpot-label">🎰 SỔ XỐ</div>
+          <div class="lottery-ad-jackpot-anim" id="lott-ad-live-text">✨ Đang chờ người trúng...</div>
+        </div>
+        <div class="lottery-ad-title">Trúng <span class="lott-prize">JACKPOT x200</span><br><span style="color:#e2e8f0;font-size:14px">chỉ cần 1 lần thử!</span></div>
+        <div class="lottery-ad-sub">Đặt cược bất kỳ số tiền — cơ hội thắng lớn mỗi vòng quay.</div>
+        <!-- LIVE WINNERS FEED -->
+        <div class="lott-winners-feed">
+          <div class="lott-winners-title"><span class="lott-winners-live-dot"></span> NGƯỜI CHƠI VỪA TRÚNG</div>
+          <div id="lott-winners-list"></div>
+        </div>
+        <div class="lottery-ad-balls">
+          <div class="lottery-ad-ball lb-purple" style="--fd:1.6s;--fdelay:0s">7</div>
+          <div class="lottery-ad-ball lb-pink" style="--fd:1.8s;--fdelay:0.2s">🎯</div>
+          <div class="lottery-ad-ball lb-blue" style="--fd:1.4s;--fdelay:0.4s">3</div>
+          <div class="lottery-ad-ball lb-gold" style="--fd:2s;--fdelay:0.1s">★</div>
+          <div class="lottery-ad-ball lb-purple" style="--fd:1.7s;--fdelay:0.3s">9</div>
+        </div>
+        <div class="lottery-ad-row">
+          <button class="lottery-ad-play-btn" onclick="event.stopPropagation();switchTab('lottery')">🎰 CHƠI NGAY</button>
+          <div class="lottery-ad-odds">Jackpot x200<br>Mini x10 · Micro x3</div>
+        </div>
+        <div class="lottery-ad-corner">🎰</div>
+      </div>
+      <div class="tier-tabs-wrap"><div class="tier-tabs" id="tier-tabs"></div></div>
+      <div id="shop-content"></div>
+    </div>
+
+    <!-- BANK -->
+    <div class="panel" id="panel-bank">
+      <div class="bank-section">
+        <div class="bank-title"><i class="ti ti-coins" aria-hidden="true"></i> Ví tiền</div>
+        <div class="currency-grid" id="wallet-grid"></div>
+      </div>
+      <div class="bank-section">
+        <div class="bank-title"><i class="ti ti-arrows-exchange" aria-hidden="true"></i> Quy đổi ($→ Vật phẩm)</div>
+        <div id="exchange-list"></div>
+      </div>
+      <div class="bank-section">
+        <div class="bank-title"><i class="ti ti-arrows-exchange" aria-hidden="true"></i> Đổi lại (Vật phẩm→ $)</div>
+        <div id="exchange-back-list"></div>
+      </div>
+      <div class="loan-section" id="loan-section">
+        <div class="loan-title">🏦 Vay Tiền</div>
+        <div id="loan-panel-content"></div>
+      </div>
+    </div>
+
+    <!-- TAX -->
+    <div class="panel" id="panel-tax">
+      <div id="tax-panel-content"></div>
+    </div>
+
+    <!-- SLOTS -->
+    <div class="panel" id="panel-slots">
+      <div style="background:#111827;border:1px solid #1f2937;border-radius:11px;padding:14px;margin-bottom:14px;font-size:14px;color:#6b7280">
+        Tối đa <span style="color:#e2e8f0">15 slots</span>. Slot 1–5 miễn phí. Slot 6 = $20K, mỗi slot tiếp ×5.
+      </div>
+      <div class="slot-expand-grid" id="slot-expand-grid"></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="panel" id="panel-stats">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px"><div style="font-size:13px;color:#6b7280;margin-bottom:5px">Total Earned</div><div style="font-size:24px;color:#4ade80;font-weight:500" id="s-total">$0</div></div>
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px"><div style="font-size:13px;color:#6b7280;margin-bottom:5px">Income/s</div><div style="font-size:24px;color:#60a5fa;font-weight:500" id="s-rate">$0</div></div>
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px"><div style="font-size:13px;color:#6b7280;margin-bottom:5px">Machines</div><div style="font-size:24px;color:#f59e0b;font-weight:500" id="s-mach">1</div></div>
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px"><div style="font-size:13px;color:#6b7280;margin-bottom:5px">Slots</div><div style="font-size:24px;color:#a78bfa;font-weight:500" id="s-slots">1/5</div></div>
+      </div>
+      <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px;margin-bottom:12px">
+        <div style="font-size:14px;color:#6b7280;margin-bottom:10px">Machine breakdown</div>
+        <div id="s-breakdown"></div>
+      </div>
+      <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:14px">
+        <button onclick="saveGame(true)" style="padding:8px 18px;background:#1e3a5f;color:#60a5fa;border:1px solid #2d5a8f;border-radius:6px;cursor:pointer;font-size:14px;margin-right:8px">💾 Save</button>
+        <button onclick="resetGame()" style="padding:8px 18px;background:#3b1a1a;color:#f87171;border:1px solid #5a2a2a;border-radius:6px;cursor:pointer;font-size:14px">🗑 Reset</button>
+        <button onclick="showTutorial()" style="padding:8px 18px;background:#1e2f4a;color:#93c5fd;border:1px solid #2d5a8f;border-radius:6px;cursor:pointer;font-size:14px;margin-left:8px">📖 Hướng Dẫn</button>
+      </div>
+    </div>
+
+    <!-- MARKET -->
+    <div class="panel" id="panel-market">
+
+      <!-- MARKET ADS -->
+      <div id="market-ads-zone">
+        <!-- Ad 1: Recycle Shop -->
+        <div class="market-ad-banner" style="background:linear-gradient(135deg,#071a0e,#0d2a1a,#071a0e);border:1px solid rgba(74,222,128,0.25);" onclick="switchTab('rshop')">
+          <div class="market-ad-tag" style="background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3)">♻️ TÁI CHẾ</div>
+          <div class="market-ad-title" style="color:#e2e8f0">Đổi Đồ → Điểm Tái Chế!</div>
+          <div class="market-ad-sub" style="color:#4ade80">Tái chế vật phẩm trong kho lấy điểm đặc biệt. Đổi ngay để nhận quà hấp dẫn!</div>
+          <button class="market-ad-btn" style="background:linear-gradient(135deg,#0d2a1a,#166534);color:#4ade80;border:1px solid rgba(74,222,128,0.3)">♻️ Tái Chế Ngay</button>
+          <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:36px;opacity:0.15">♻️</div>
+        </div>
+        <!-- Ad 2: VIP Shop -->
+        <div class="market-ad-banner" style="background:linear-gradient(135deg,#1a0a2e,#2a1a3e,#1a0a2e);border:1px solid rgba(124,58,237,0.25);" onclick="switchTab('vipshop')">
+          <div class="market-ad-tag" style="background:rgba(124,58,237,0.15);color:#c4b5fd;border:1px solid rgba(124,58,237,0.3)">👑 VIP</div>
+          <div class="market-ad-title" style="color:#c4b5fd">SHOPVIP.COM — Hàng Hiếm!</div>
+          <div class="market-ad-sub" style="color:#a78bfa">Bundle đặc biệt, vật phẩm độc quyền chỉ có tại ShopVIP. Xem ngay kẻo hết!</div>
+          <button class="market-ad-btn" style="background:linear-gradient(135deg,#2d1a4a,#4c1d95);color:#e9d5ff;border:1px solid rgba(124,58,237,0.4)">👑 Vào ShopVIP</button>
+          <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:36px;opacity:0.15">👑</div>
+        </div>
+      </div>
+      <div class="market-tabs">
+        <div class="market-tab mt-normal active" onclick="switchMarket('normal')" id="mtab-normal">🏬 Chợ Phổ Thông <span style="font-size:10px;color:#4ade80">(100%)</span></div>
+        <div class="market-tab mt-mid" onclick="switchMarket('mid')" id="mtab-mid">🛒 Chợ Giá Rẻ <span style="font-size:10px;color:#60a5fa">(57%)</span></div>
+        <div class="market-tab mt-black" onclick="switchMarket('black')" id="mtab-black">🌑 Chợ Đen <span style="font-size:10px;color:#f87171">(36%)</span></div>
+        <div class="market-tab mt-my" onclick="switchMarket('my')" id="mtab-my">📦 Hàng Của Tôi</div>
+      </div>
+      <div id="market-timer-bar" style="font-size:12px;color:#4b5563;margin-bottom:10px;padding:6px 10px;background:#111827;border:1px solid #1f2937;border-radius:6px;display:flex;justify-content:space-between">
+        <span>🔄 Stock mới sau: <span id="mkt-countdown" style="color:#fbbf24">60s</span></span>
+        <span>Người mua tiếp: <span id="mkt-buyer-countdown" style="color:#60a5fa">20s</span></span>
+      </div>
+      <div id="market-content"></div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="panel" id="panel-inventory">
+      <div class="inv-slot-info">
+        <span style="font-size:13px">🎒 Kho: <span id="inv-used">0</span>/<span id="inv-max">50</span></span>
+        <span style="font-size:13px">♻️ Điểm: <span id="inv-rp" style="color:#4ade80;font-weight:500">0</span></span>
+        <button onclick="expandInventory()" style="padding:6px 12px;background:#1e3a5f;color:#60a5fa;border:1px solid #2d5a8f;border-radius:6px;cursor:pointer;font-size:11px">+10 Slot ($700)</button>
+      </div>
+      <div id="inv-grid" class="inv-grid"></div>
+      <div id="inv-empty" style="display:none;text-align:center;color:#374151;padding:30px;font-size:14px">Kho trống 📦</div>
+    </div>
+
+    <!-- RECYCLE SHOP -->
+    <div class="panel" id="panel-rshop">
+      <div style="background:#111827;border:1px solid #1f2937;border-radius:11px;padding:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <span style="font-size:15px;color:#4ade80">♻️ Điểm Tái Chế: <strong id="rshop-rp">0</strong></span>
+        <span style="font-size:13px;color:#6b7280">1 điểm tái chế ≠ $1 (xem bảng đổi bên dưới)</span>
+        <span style="font-size:11px;color:#4b5563;font-style:italic">Đổi trực tiếp ra tiền mặt đã bị vô hiệu hóa để chống lạm phát</span>
+      </div>
+      <div class="rshop-grid" id="rshop-grid"></div>
+    </div>
+
+    <!-- COMPUTER -->
+    <div class="panel" id="panel-computer" style="padding:12px">
+      <!-- Internet Status Bar -->
+      <div id="inet-status-bar" class="inet-status-bar offline" style="margin-bottom:10px">
+        <span>📡 Internet: <span id="inet-status-text">NO CONNECTION</span></span>
+        <span id="inet-timer-text" style="font-size:10px;color:#4b5563"></span>
+      </div>
+      <!-- Internet Package Modal -->
+      <div class="inet-modal" id="inet-modal" style="display:none">
+        <div class="inet-box">
+          <div class="inet-title">📡 INTERNET PACKAGES</div>
+          <div class="inet-sub">// buy_internet — select your plan</div>
+          <div class="inet-pkg" id="pkg-free" onclick="selectPkg('free')" style="border-color:#374151">
+            <div class="inet-pkg-name" style="color:#9ca3af">🆓 FREE PLAN</div>
+            <div class="inet-pkg-price" style="color:#4ade80">$0.00 / 5 phút <span style="font-size:10px;color:#4b5563">(1 lần/ngày)</span></div>
+            <div class="inet-pkg-desc">50% chance to connect • Không mua được thêm</div>
+            <span class="inet-pkg-badge" style="background:#1f2937;color:#9ca3af">50%</span>
+          </div>
+          <div class="inet-pkg" id="pkg-basic" onclick="selectPkg('basic')">
+            <div class="inet-pkg-name">🔵 BASIC</div>
+            <div class="inet-pkg-price">$1.50 / 2 minutes</div>
+            <div class="inet-pkg-desc">60% chance to connect to vendors</div>
+            <span class="inet-pkg-badge" style="background:#1e2f4a;color:#60a5fa">60%</span>
+          </div>
+          <div class="inet-pkg" id="pkg-balance" onclick="selectPkg('balance')">
+            <div class="inet-pkg-name">🟢 BALANCE</div>
+            <div class="inet-pkg-price">$5.00 / 2 minutes</div>
+            <div class="inet-pkg-desc">80% chance to connect to vendors</div>
+            <span class="inet-pkg-badge" style="background:#1e3a2a;color:#4ade80">80%</span>
+          </div>
+          <div class="inet-pkg best" id="pkg-speed" onclick="selectPkg('speed')">
+            <div class="inet-pkg-name">⚡ SPEED</div>
+            <div class="inet-pkg-price">$10.00 / 3 minutes</div>
+            <div class="inet-pkg-desc">100% connect rate + FREE 1 bargain bonus</div>
+            <span class="inet-pkg-badge" style="background:#3a2a00;color:#fbbf24">100% ★</span>
+          </div>
+          <div style="font-size:11px;color:#374151;margin:8px 0 4px;text-align:center">
+            Select quantity: <span id="inet-qty-display" style="color:#4ade80;font-weight:bold">1x</span>
+          </div>
+          <div style="display:flex;gap:6px;justify-content:center;margin-bottom:4px">
+            <button onclick="setInetQty(1)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">1x</button>
+            <button onclick="setInetQty(2)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">2x</button>
+            <button onclick="setInetQty(3)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">3x</button>
+            <button onclick="setInetQty(5)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">5x</button>
+            <button onclick="setInetQty(10)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">10x</button>
+          </div>
+          <div id="inet-total-cost" style="text-align:center;font-size:12px;color:#fbbf24;margin-bottom:8px"></div>
+          <div class="inet-actions">
+            <button class="inet-buy-btn" id="inet-confirm-btn" onclick="confirmBuyInternet()">[ PURCHASE ]</button>
+            <button class="inet-cancel-btn" onclick="closeInetModal()">[ CANCEL ]</button>
+          </div>
+        </div>
+      </div>
+      <div class="terminal-wrap" id="terminal-wrap">
+        <div class="terminal-titlebar">
+          <div class="terminal-dot" style="background:#ff5f57"></div>
+          <div class="terminal-dot" style="background:#febc2e"></div>
+          <div class="terminal-dot" style="background:#28c840"></div>
+          <span style="font-size:12px;color:#4b5563;margin-left:8px;font-family:monospace">FACTORY-OS v2.0 — Terminal</span>
+          <span style="margin-left:auto;font-size:11px;color:#1f3a1f" id="term-conn-status">● OFFLINE</span>
+        </div>
+        <div class="terminal-output" id="terminal-output"></div>
+        <div class="boss-choices-panel" id="boss-choices-panel">
+          <div class="boss-choices-title">// Chọn câu trả lời — click hoặc gõ [say N]</div>
+          <div class="boss-choices-grid" id="boss-choices-grid"></div>
+        </div>
+        <div class="terminal-input-row">
+          <span class="terminal-prompt" id="term-prompt">root@factory:~$</span>
+          <input class="terminal-input" id="terminal-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nhập lệnh..." />
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#1f3a1f;line-height:1.8;padding:0 4px">
+        <span style="color:#374151">Vendor: </span>
+        <code style="color:#4ade80">call_to(url)</code> · <code style="color:#4ade80">tgn</code> · <code style="color:#4ade80">buy [n]</code>
+        &nbsp;|&nbsp;
+        <span style="color:#f59e0b">Boss: </span>
+        <code style="color:#fbbf24">talk_to(url)</code> · <code style="color:#fbbf24">say [n]</code> · <code style="color:#fbbf24">boss_buy [n]</code>
+        &nbsp;|&nbsp;
+        <code style="color:#4ade80">help</code> · <code style="color:#4ade80">buy_internet</code> · <code style="color:#4ade80">hangup</code> · <code style="color:#4ade80">clear</code>
+      </div>
+    </div>
+
+    <!-- VIP SHOP -->    <div class="panel" id="panel-vipshop">
+      <div style="background:linear-gradient(135deg,#1a0a2e,#2a1a1e);border:1px solid #7c3aed66;border-radius:13px;padding:18px;margin-bottom:16px;text-align:center">
+        <div style="font-size:28px;margin-bottom:6px">👑</div>
+        <div style="font-size:18px;font-weight:700;color:#c4b5fd;letter-spacing:1px">SHOPVIP.COM</div>
+        <div style="font-size:12px;color:#7c3aed;margin-top:3px">✅ Uy tín · Hàng chính hãng · Giao ngay</div>
+      </div>
+      <div id="vip-bundles"></div>
+    </div>
+
+    <!-- LOTTERY -->
+    <div class="panel" id="panel-lottery" style="padding:16px">
+
+      <!-- MEGA JACKPOT LIVE BANNER -->
+      <div class="lott-mega-live-banner" id="lott-mega-live-banner">
+        <div class="lott-mega-stars" id="lott-mega-stars"></div>
+        <div class="lott-mega-glow-ring"></div>
+        <div class="lott-mega-top-row">
+          <div class="lott-live-badge"><span class="lott-live-dot-ring"></span>🔴 LIVE</div>
+          <div class="lott-pool-label">QUỸ JACKPOT</div>
+          <div class="lott-pool-val" id="lott-pool-val">$98,427,500</div>
+        </div>
+        <div class="lott-mega-title">🎰 JACKPOT × 200</div>
+        <div class="lott-mega-sub" id="lott-live-jackpot-val">Cược bất kỳ số tiền — 5 số liên tiếp = ×200!</div>
+        <!-- Live Players Counter -->
+        <div class="lott-players-row">
+          <div class="lott-players-counter">
+            <span class="lott-players-dot"></span>
+            <span id="lott-live-players">2,847</span> người đang chơi
+          </div>
+          <div class="lott-last-jackpot">⏱ Jackpot gần nhất: <span id="lott-last-jack-time">4 phút trước</span></div>
+        </div>
+        <!-- Live Activity Feed -->
+        <div class="lott-activity-feed" id="lott-activity-feed">
+          <div class="lott-feed-row lott-feed-row--enter"><span class="lott-feed-avi">🧑</span><span class="lott-feed-name">Minh_T</span><span class="lott-feed-action"> vừa đặt cược $5,000</span></div>
+          <div class="lott-feed-row"><span class="lott-feed-avi">👩</span><span class="lott-feed-name">NgocHa</span><span class="lott-feed-action"> vừa đặt cược $12,000</span></div>
+          <div class="lott-feed-row"><span class="lott-feed-avi">👨</span><span class="lott-feed-name">VuHoang</span><span class="lott-feed-action"> vừa thua $3,000</span><span class="lott-feed-badge lott-feed-badge--loss">miss</span></div>
+        </div>
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <div class="lott-tag-chip lott-tag-chip--purple">⚡ Quay ngay lập tức</div>
+          <div class="lott-tag-chip lott-tag-chip--pink">🎯 5 số = x200</div>
+          <div class="lott-tag-chip lott-tag-chip--gold">💰 2 số = x1.5</div>
+          <div class="lott-tag-chip lott-tag-chip--red">🏆 Jackpot ~1 / 50 vòng</div>
+        </div>
+      </div>
+
+      <!-- Mode Switcher -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div id="lmode-jackpot" onclick="switchLotteryMode('jackpot')" style="cursor:pointer;border-radius:11px;padding:14px 10px;text-align:center;border:2px solid #7c3aed;background:linear-gradient(135deg,#1a0a2e,#0d0a1a);transition:all 0.2s;position:relative;overflow:hidden">
+          <div style="font-size:22px;margin-bottom:4px;animation:microFloat 2s infinite">🎰</div>
+          <div style="font-size:14px;font-weight:700;color:#c4b5fd;letter-spacing:0.5px">JACKPOT365</div>
+          <div style="font-size:10px;color:#7c3aed;margin-top:3px">Số 1–99 · Liên kề đơn vị</div>
+        </div>
+        <div id="lmode-mega" onclick="switchLotteryMode('mega')" style="cursor:pointer;border-radius:11px;padding:14px 10px;text-align:center;border:2px solid #1f2937;background:#111827;transition:all 0.2s;position:relative;overflow:hidden">
+          <div style="font-size:22px;margin-bottom:4px;animation:microFloat 2.5s infinite">🌟</div>
+          <div style="font-size:14px;font-weight:700;color:#fbbf24;letter-spacing:0.5px">MEGA365</div>
+          <div style="font-size:10px;color:#92400e;margin-top:3px">Số 10–990 · Liên kề hàng chục · ×7</div>
+        </div>
+      </div>
+
+      <!-- Prize table -->
+      <div style="background:linear-gradient(135deg,#0d0a1a,#1a1030);border:1px solid rgba(124,58,237,0.2);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-size:13px;color:#9ca3af;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          🏆 Bảng Thưởng — <span id="lottery-mode-label" style="color:#c4b5fd;font-weight:700">JACKPOT365</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;font-size:13px" id="lottery-prize-table"></div>
+      </div>
+
+      <!-- Balls display ENHANCED -->
+      <div class="lball-display-wrap">
+        <div style="font-size:11px;color:#4b5563;margin-bottom:12px;font-family:monospace;letter-spacing:2px;animation:neonPulse 3s infinite" id="lottery-mode-sub">🎰 KẾT QUẢ — JACKPOT365</div>
+        <div style="display:flex;justify-content:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;position:relative" id="lottery-balls"></div>
+        <div id="lottery-result-text" style="font-size:14px;color:#4b5563;min-height:22px;font-family:monospace;transition:all 0.4s"></div>
+      </div>
+
+      <!-- Bet controls -->
+      <div style="background:linear-gradient(135deg,#0a0f1e,#111827);border:1px solid rgba(124,58,237,0.15);border-radius:12px;padding:16px;margin-bottom:14px">
+        <div style="font-size:13px;color:#9ca3af;margin-bottom:10px;font-weight:600">💰 Số Tiền Cược</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="lottery-bet-btns"></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:13px;color:#6b7280">Cược:</span>
+          <input id="lottery-bet-input" type="number" min="1" step="1"
+            style="flex:1;background:#0d1117;border:1px solid #374151;border-radius:8px;padding:9px 11px;color:#e2e8f0;font-size:15px;outline:none;transition:border-color 0.2s"
+            oninput="syncBetFromInput()" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#374151'"/>
+          <span style="font-size:13px;color:#4b5563;white-space:nowrap">Có: <span id="lottery-balance" style="color:#4ade80;font-weight:700">$0</span></span>
+        </div>
+      </div>
+
+      <!-- Spin button ENHANCED -->
+      <div class="spin-btn-wrap">
+        <div class="spin-btn-glow" id="spin-glow"></div>
+        <button id="lottery-spin-btn" onclick="spinLottery()"
+          style="position:relative;z-index:1;width:100%;padding:16px;background:linear-gradient(135deg,#3a1a5a,#1a1a4a,#2a0a3a);color:#c4b5fd;border:2px solid #7c3aed88;border-radius:11px;cursor:pointer;font-size:17px;font-weight:800;letter-spacing:1.5px;transition:all 0.2s;text-shadow:0 0 10px rgba(196,181,253,0.5);box-shadow:0 0 30px rgba(124,58,237,0.2)">
+          🎰 QUAY SỔ XỐ
+        </button>
+      </div>
+
+      <!-- History -->
+      <div style="margin-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:13px;color:#4b5563;font-weight:600">📋 Lịch Sử (<span id="lottery-hist-count">0</span> lần)</div>
+          <button onclick="clearLotteryHistory()" style="padding:4px 10px;background:#1a0808;color:#f87171;border:1px solid #3b1a1a;border-radius:5px;cursor:pointer;font-size:11px;transition:all 0.2s" onmouseenter="this.style.background='#3b1a1a'" onmouseleave="this.style.background='#1a0808'">🗑 Xóa</button>
+        </div>
+        <div id="lottery-stats-bar" style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:12px;text-align:center"></div>
+        <div id="lottery-history" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS PANEL -->
+    <div class="panel" id="panel-settings" style="padding:16px">
+      <div class="settings-header">
+        <div class="settings-header-icon">⚙️</div>
+        <div class="settings-header-title">CÀI ĐẶT</div>
+        <div class="settings-header-sub">Tùy chỉnh trải nghiệm game của bạn</div>
+      </div>
+
+      <!-- GRAPHICS SETTINGS -->
+      <div class="settings-section">
+        <div class="settings-section-title"><span>🎨</span> ĐỒ HỌA NÂNG CAO</div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">✨ Hiệu Ứng Ánh Sáng</div>
+            <div class="settings-row-desc">Glow, neon pulse, light bloom xung quanh UI</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="gfx-lighting" checked onchange="applyGraphicsSetting()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">💫 Particle & Confetti</div>
+            <div class="settings-row-desc">Các hạt bay nổi, hiệu ứng confetti khi jackpot</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="gfx-particles" checked onchange="applyGraphicsSetting()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🌊 Hiệu Ứng Blur & Backdrop</div>
+            <div class="settings-row-desc">Kính mờ, blur phía sau modal và overlay</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="gfx-blur" checked onchange="applyGraphicsSetting()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🎬 Animation Card Entrance</div>
+            <div class="settings-row-desc">Cards xuất hiện mượt khi chuyển tab</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="gfx-animations" checked onchange="applyGraphicsSetting()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🌟 Shimmer & Gradient Chạy</div>
+            <div class="settings-row-desc">Hiệu ứng ánh sáng quét trên button, border</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="gfx-shimmer" checked onchange="applyGraphicsSetting()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🔭 Scanline Overlay</div>
+            <div class="settings-row-desc">Đường quét CRT phía trên màn hình</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="gfx-scanline" checked onchange="applyGraphicsSetting()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🌈 Background Stars</div>
+            <div class="settings-row-desc">Các chấm sáng nền game tạo cảm giác không gian</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="gfx-stars" checked onchange="applyGraphicsSetting()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <!-- Quality Slider -->
+        <div class="settings-row settings-row--block">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🎚️ Chất Lượng Đồ Họa</div>
+            <div class="settings-row-desc">Điều chỉnh mức độ hiệu ứng tổng thể</div>
+          </div>
+          <div class="settings-quality-slider">
+            <span class="settings-ql-label">Thấp</span>
+            <input type="range" id="gfx-quality" min="1" max="3" step="1" value="3" oninput="applyQualityPreset(this.value)" class="settings-slider">
+            <span class="settings-ql-label">Cao</span>
+            <span class="settings-ql-val" id="gfx-quality-val">Cao</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DISPLAY MODE -->
+      <div class="settings-section">
+        <div class="settings-section-title"><span>📱</span> CHẾ ĐỘ HIỂN THỊ</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px">
+          <button id="mode-btn-normal" onclick="applyDisplayMode('normal')" class="display-mode-btn display-mode-btn--active">
+            🖥️<br><span>Bình Thường</span><br><small>Full effects</small>
+          </button>
+          <button id="mode-btn-mobile" onclick="applyDisplayMode('mobile')" class="display-mode-btn">
+            📱<br><span>Mobile</span><br><small>Chữ to · Nhẹ hơn</small>
+          </button>
+          <button id="mode-btn-tv" onclick="applyDisplayMode('tv')" class="display-mode-btn">
+            📺<br><span>TV Mode</span><br><small>Potato · Cực nhẹ</small>
+          </button>
+        </div>
+        <div id="display-mode-desc" style="font-size:11px;color:#374151;text-align:center;margin-top:6px;padding:6px;background:rgba(0,0,0,0.2);border-radius:7px">
+          Chế độ hiện tại: <span id="display-mode-label" style="color:#60a5fa;font-weight:700">Bình Thường</span>
+        </div>
+      </div>
+
+      <!-- FPS LOCKER -->
+      <div class="settings-section">
+        <div class="settings-section-title"><span>🎯</span> FPS LOCKER</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button id="fps-btn-30" onclick="setFpsTarget(30)" class="fps-btn fps-btn--active">
+            30 FPS<small>Mặc định · Tiết kiệm</small>
+          </button>
+          <button id="fps-btn-60" onclick="setFpsTarget(60)" class="fps-btn">
+            60 FPS<small>Mượt · Cân bằng</small>
+          </button>
+          <button id="fps-btn-120" onclick="setFpsTarget(120)" class="fps-btn">
+            120 FPS<small>Cực mượt · Máy mạnh</small>
+          </button>
+        </div>
+        <div style="font-size:11px;color:#374151;text-align:center;padding:6px;background:rgba(0,0,0,0.2);border-radius:7px">
+          Đang chạy: <span id="fps-current-label" style="color:#4ade80;font-weight:700">30 FPS</span>
+          <span style="color:#1f2937;margin:0 6px">·</span>
+          <span style="color:#374151">Game logic luôn chính xác dù ở FPS nào</span>
+        </div>
+      </div>
+
+      <!-- GAME SETTINGS -->
+      <div class="settings-section">
+        <div class="settings-section-title"><span>🎮</span> CÀI ĐẶT GAME</div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🔔 Thông Báo Pop-up</div>
+            <div class="settings-row-desc">Hiện thông báo khi mua, bán, nhận thưởng</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="game-notif" checked onchange="saveSettings()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">💾 Tự Động Lưu</div>
+            <div class="settings-row-desc">Lưu game mỗi 30 giây vào LocalStorage</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="game-autosave" checked onchange="saveSettings()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">📢 Hiệu Ứng Jackpot Nổ</div>
+            <div class="settings-row-desc">Overlay bắn pháo hoa khi trúng jackpot</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="game-jackpot-fx" checked onchange="saveSettings()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🔴 Live Feed Sổ Xố</div>
+            <div class="settings-row-desc">Hiện người chơi thắng/thua realtime trong tab Sổ Xố</div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" id="game-livefeed" checked onchange="saveSettings()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        </div>
+      </div>
+
+      <!-- SAVE & RESET -->
+      <div class="settings-section">
+        <div class="settings-section-title"><span>💾</span> LƯU & KHÔI PHỤC</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+          <button onclick="saveGame(true)" class="settings-action-btn settings-action-btn--blue">💾 Lưu Ngay</button>
+          <button onclick="resetGame()" class="settings-action-btn settings-action-btn--red">🗑 Xóa & Reset</button>
+        </div>
+        <div class="settings-save-info" id="settings-save-info">
+          <span id="settings-last-save">Chưa lưu</span>
+        </div>
+      </div>
+
+      <!-- ABOUT / VERSION -->
+      <div class="settings-section">
+        <div class="settings-section-title"><span>ℹ️</span> THÔNG TIN</div>
+        <div class="settings-about-box">
+          <div class="settings-about-row"><span>Phiên bản</span><span style="color:#60a5fa;font-weight:700">v3.2.0</span></div>
+          <div class="settings-about-row"><span>Build</span><span style="color:#4ade80">2025-Enhanced</span></div>
+          <div class="settings-about-row"><span>Lưu trữ</span><span style="color:#fbbf24">LocalStorage</span></div>
+          <div class="settings-about-row"><span>Tổng máy</span><span id="settings-total-machines" style="color:#a78bfa">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPDATE LOG PANEL
+         Displays a human-readable changelog of game versions.
+         Content is injected by renderUpdateLog() on tab switch. -->
+    <div class="panel" id="panel-updatelog" style="padding:16px"></div>
+
+    <!-- RANK PANEL
+         Shows player rank tier, progress to next rank, and a 20-person
+         leaderboard for the active tier tab.  NPC rows are clickable to
+         open a profile modal.  Refreshes every 3 seconds automatically. -->
+    <div class="panel" id="panel-rank" style="padding:16px"></div>
+
+    <!-- MATERIALS SHOP PANEL
+         Spend dollars on permanent income-multiplier upgrades.
+         Items in MAT_SHOP_ITEMS[] buff G.valueMultiplier.
+         Balance is shown at the top; grid is rendered by renderMatShop(). -->
+    <div class="panel" id="panel-matshop">
+      <div style="background:linear-gradient(135deg,#0d1a0d,#1a1a0d);border:1px solid #2d4a1e;border-radius:13px;padding:16px;margin-bottom:14px;text-align:center">
+        <div style="font-size:28px;margin-bottom:6px">🧪</div>
+        <div style="font-size:18px;font-weight:700;color:#86efac;letter-spacing:1px">SHOP NGUYÊN LIỆU</div>
+        <div style="font-size:12px;color:#4ade8088;margin-top:3px">Tăng sức mạnh nhà máy · Buff tốc độ · Nâng cấp đặc biệt</div>
+        <div style="margin-top:8px;font-size:13px;color:#4b5563">Số dư: <span id="matshop-balance" style="color:#4ade80">$0</span></div>
+      </div>
+      <div id="matshop-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px"></div>
+    </div>
+
+    <!-- ELECTRICITY PANEL
+         Shows power status, fuel gauge, statistics, and fuel purchase cards.
+         Content is dynamically rendered by renderElecPanel().
+         Real-time bar/timer updates run via updateElecPanelLive() every second. -->
+    <div class="panel" id="panel-electricity">
+      <div id="elec-panel-content"></div>
+    </div>
+
+  </div>
+
+  <!-- MANUAL POWER OFF OVERLAY
+       Shown when the player manually toggles off power via the Electricity panel.
+       Reminds the player that business is paused and lets them turn power back on.
+       Bank and Electricity tabs remain accessible even with power off. -->
+  <div id="manual-power-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9000;flex-direction:column;align-items:center;justify-content:center;">
+    <div class="mpo-box" style="position:relative">
+      <button onclick="dismissManualPowerOverlay()" title="Đóng thông báo (điện vẫn tắt)" style="position:absolute;top:-8px;right:-8px;width:28px;height:28px;background:#1a0808;color:#f87171;border:1px solid #5a2a2a;border-radius:50%;cursor:pointer;font-size:15px;font-weight:bold;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+      <div style="font-size:48px;margin-bottom:12px">🔌</div>
+      <div style="font-size:18px;color:#f87171;font-weight:bold;margin-bottom:8px">NGUỒN ĐIỆN ĐÃ TẮT</div>
+      <div style="font-size:13px;color:#6b7280;margin-bottom:20px;line-height:1.6">Bạn đã tắt điện thủ công.<br>Các hoạt động kinh doanh bị tạm dừng.</div>
+      <div style="font-size:12px;color:#374151;margin-bottom:20px;padding:10px;background:#0a0a0a;border-radius:8px;border:1px solid #1f2937">
+        ✅ Tab Điện &amp; Ngân Hàng vẫn hoạt động<br>
+        ❌ Tất cả tab khác bị khóa
+      </div>
+      <button onclick="togglePower()" style="width:100%;padding:14px;background:#052e16;color:#4ade80;border:2px solid #166534;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;box-shadow:0 0 16px #4ade8044">⚡ Bật Điện Lại</button>
+    </div>
+  </div>
+
+  <!-- OFFLINE CONSOLE OVERLAY
+       Shown automatically when fuel runs out (automatic power outage).
+       Styled like an emergency terminal with 5 "options":
+         Option 0: Restart power if fuel > 0
+         Option 1: Use one-time 15-minute reserve power (free)
+         Option 2: Open emergency fuel shop
+         Options 3-5: Intentionally broken / flavour text only
+       This overlay locks the player out of most tabs until power is restored. -->
+  <div id="offline-console" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.97);z-index:500;flex-direction:column;align-items:center;justify-content:center;font-family:'Courier New',monospace">
+    <div style="width:340px;max-width:95vw;max-height:92vh;overflow-y:auto">
+      <div style="text-align:center;margin-bottom:20px;position:relative">
+        <!-- Nút thu nhỏ / tắt tạm overlay -->
+        <button onclick="dismissOutageOverlay()" title="Thu nhỏ thông báo" style="position:absolute;top:0;right:0;background:#1a1a1a;border:1px solid #374151;color:#6b7280;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;font-family:'Courier New',monospace">✕ Thu nhỏ</button>
+        <div style="font-size:48px;animation:powerFlicker 0.8s infinite alternate">💡</div>
+        <div style="font-size:18px;color:#f87171;font-weight:bold;margin-top:8px;letter-spacing:2px">MẤT ĐIỆN!</div>
+        <div style="font-size:12px;color:#4b5563;margin-top:4px">Tất cả hoạt động đã bị tạm dừng</div>
+      </div>
+      <div style="background:#0d0d0d;border:1px solid #2a1a1a;border-radius:12px;padding:20px">
+        <div style="font-size:13px;color:#f87171;margin-bottom:4px;letter-spacing:1px">[ OFFLINE CONSOLE v1.0 ]</div>
+        <div style="font-size:11px;color:#374151;margin-bottom:16px">Emergency power management system</div>
+        <!-- Option 0: Restore power if fuel available -->
+        <div id="oc-opt0" onclick="restorePowerIfFuel()" style="background:#052e16;border:1px solid #166534;border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.15s">
+          <div style="color:#4ade80;font-size:13px;font-weight:bold">⚡ Bật Điện Lại</div>
+          <div id="oc-opt0-sub" style="color:#6b7280;font-size:11px;margin-top:3px">Khởi động lại hệ thống bằng xăng hiện có</div>
+        </div>
+        <!-- Option 1: Reserve power -->
+        <div id="oc-opt1" onclick="offlineConsoleAction(1)" style="background:#0f1a0f;border:1px solid #1e3a1e;border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.15s">
+          <div style="color:#4ade80;font-size:13px;font-weight:bold">[ 1 ] Dùng nguồn điện dự trữ</div>
+          <div style="color:#6b7280;font-size:11px;margin-top:3px">⏱ +15 phút · Miễn phí · Chỉ dùng 1 lần/sự kiện</div>
+          <div style="color:#374151;font-size:10px;margin-top:2px" id="oc-reserve-status"></div>
+        </div>
+        <!-- Option 2: Buy fuel -->
+        <div id="oc-opt2" onclick="offlineConsoleAction(2)" style="background:#0a0a0a;border:1px solid #1f2937;border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.15s">
+          <div style="color:#fbbf24;font-size:13px;font-weight:bold">[ 2 ] Mua bình xăng</div>
+          <div style="color:#6b7280;font-size:11px;margin-top:3px">Mở cửa hàng nhiên liệu khẩn cấp</div>
+        </div>
+        <!-- Option 3: Broken -->
+        <div style="background:#0a0a0a;border:1px dashed #1f2937;border-radius:8px;padding:12px;margin-bottom:8px;opacity:0.4;cursor:not-allowed">
+          <div style="color:#4b5563;font-size:13px;font-weight:bold">[ 3 ] Kết nối lưới điện thành phố</div>
+          <div style="color:#374151;font-size:11px;margin-top:3px">⚠️ LỖI: Đường dây bị đứt do mất điện</div>
+        </div>
+        <!-- Option 4: Broken -->
+        <div style="background:#0a0a0a;border:1px dashed #1f2937;border-radius:8px;padding:12px;margin-bottom:8px;opacity:0.4;cursor:not-allowed">
+          <div style="color:#4b5563;font-size:13px;font-weight:bold">[ 4 ] Khởi động máy phát diesel</div>
+          <div style="color:#374151;font-size:11px;margin-top:3px">⚠️ LỖI: Module khởi động không phản hồi</div>
+        </div>
+        <!-- Option 5: Broken -->
+        <div style="background:#0a0a0a;border:1px dashed #1f2937;border-radius:8px;padding:12px;opacity:0.4;cursor:not-allowed">
+          <div style="color:#4b5563;font-size:13px;font-weight:bold">[ 5 ] Liên hệ kỹ thuật viên</div>
+          <div style="color:#374151;font-size:11px;margin-top:3px">⚠️ LỖI: Không có tín hiệu mạng</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:12px;font-size:10px;color:#1f2937">FACTORY EMERGENCY SYSTEM · BUILD 1.0</div>
+    </div>
+  </div>
+
+  <!-- FUEL SHOP SUB-OVERLAY
+       Emergency fuel purchase modal, accessible from the Offline Console.
+       Lists the same FUEL_TYPES as the Electricity panel.
+       Closes back to the Offline Console when the player clicks "Back". -->
+  <div id="fuel-shop-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.98);z-index:600;align-items:center;justify-content:center;font-family:'Courier New',monospace">
+    <div style="width:340px;max-width:95vw;max-height:92vh;display:flex;flex-direction:column;">
+      <div style="text-align:center;margin-bottom:14px;flex-shrink:0">
+        <div style="font-size:13px;color:#fbbf24;letter-spacing:1px">[ CỬA HÀNG NHIÊN LIỆU KHẨN CẤP ]</div>
+        <div style="font-size:11px;color:#4b5563;margin-top:2px">Số dư: <span id="fuel-shop-balance" style="color:#4ade80">$0</span></div>
+      </div>
+      <div id="fuel-shop-items" style="overflow-y:auto;flex:1;padding-right:2px"></div>
+      <div style="margin-top:10px;text-align:center;flex-shrink:0">
+        <button onclick="closeFuelShop()" style="padding:8px 24px;background:#1a1a1a;color:#6b7280;border:1px solid #374151;border-radius:6px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px">[ QUAY LẠI ]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELL MACHINE MODAL
+       Confirmation dialog shown when the player clicks "Sell" on a machine.
+       Displays the machine name and the 1/3-price refund amount.
+       Confirmed by confirmSell(), cancelled by closeModal(). -->
+  <div class="modal-overlay" id="modal" style="display:none">
+    <div class="modal-box">
+      <div style="font-size:36px;margin-bottom:10px">⚠️</div>
+      <div style="font-size:17px;font-weight:500;color:#e2e8f0;margin-bottom:6px">Bán máy?</div>
+      <div style="font-size:15px;color:#9ca3af;margin-bottom:5px" id="mod-name"></div>
+      <div style="font-size:17px;color:#fbbf24;font-weight:500" id="mod-refund"></div>
+      <div style="font-size:13px;color:#4b5563;margin-top:4px">(1/3 giá trị ban đầu)</div>
+      <div class="modal-btns">
+        <button class="btn-yes" onclick="confirmSell()">Có, bán</button>
+        <button class="btn-no" onclick="closeModal()">Không</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECYCLE ITEM MODAL
+       Confirmation dialog for recycling an inventory item.
+       Shows item name, value, and Recycle Points to be earned.
+       Confirmed by confirmRecycle(), cancelled by closeRecycleModal(). -->
+  <div class="modal-overlay" id="recycle-modal" style="display:none">
+    <div class="modal-box">
+      <div style="font-size:40px;margin-bottom:10px" id="rcmod-icon">♻️</div>
+      <div style="font-size:17px;font-weight:500;color:#e2e8f0;margin-bottom:6px">Tái chế vật phẩm?</div>
+      <div style="font-size:22px;margin:8px 0" id="rcmod-name"></div>
+      <div style="font-size:14px;color:#9ca3af;margin-bottom:4px" id="rcmod-price"></div>
+      <div style="font-size:16px;color:#4ade80;font-weight:500;margin-top:6px" id="rcmod-pts"></div>
+      <div style="font-size:12px;color:#4b5563;margin-top:4px">Vật phẩm sẽ bị hủy và không thể khôi phục!</div>
+      <div class="modal-btns">
+        <button class="btn-yes" onclick="confirmRecycle()">♻️ Tái chế</button>
+        <button class="btn-no" onclick="closeRecycleModal()">Hủy</button>
+      </div>
+    </div>
+  </div>
+  <div class="notif" id="notif"></div>
+</div>
+
+<script src="game-script.js"></script>
+</body></html>

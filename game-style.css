@@ -1,0 +1,1572 @@
+<style>
+/*
+  ============================================================================
+  CSS  —  Design system + component styles
+  ============================================================================
+  CONVENTIONS
+  • All colours reference CSS custom properties (--color-*) or raw hex values.
+  • Dark background palette: #060912 base, #0a0f1e mid, #111f3a card surface.
+  • Accent colours per context:
+      green  #4ade80  = income / positive / online
+      blue   #60a5fa  = info / active tab
+      yellow #fbbf24  = currency / warning
+      red    #f87171  = error / negative / offline
+      purple #a78bfa  = special / VIP
+  • Animation names follow camelCase; most loop infinitely for ambient effect.
+  ============================================================================
+*/
+/* ══════════════════════════════════════════════
+   MODERN FACTORY GAME — PREMIUM UI OVERHAUL
+   ══════════════════════════════════════════════ */
+
+/* ── Global Animations ──
+   PERF RULE: only animate transform + opacity → GPU composited, zero repaint.
+   box-shadow / text-shadow / filter / background-position on large elements = repaint every frame = LAG.
+*/
+@keyframes bgShift      { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+@keyframes neonPulse    { 0%,100%{opacity:0.8} 50%{opacity:1} }
+@keyframes borderGlow   { 0%,100%{opacity:0.7} 50%{opacity:1} }
+@keyframes slideDown    { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInUp     { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes shimmerSlide { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+@keyframes scanline     { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+@keyframes floatY       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+@keyframes rotateGlow   { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+@keyframes tabPop       { 0%{transform:scale(0.94)} 60%{transform:scale(1.03)} 100%{transform:scale(1)} }
+@keyframes moneyPop     { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1)} }
+@keyframes cardEntrance { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+@keyframes progressGlow { 0%,100%{opacity:0.85} 50%{opacity:1} }
+@keyframes titleGradient{ 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+@keyframes glowRing     { 0%{opacity:0.5;transform:scale(1)} 70%{opacity:0;transform:scale(1.3)} 100%{opacity:0} }
+@keyframes textShimmer  { 0%{background-position:-200% center} 100%{background-position:200% center} }
+@keyframes hueRotate    { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
+@keyframes ripple       { 0%{transform:scale(0);opacity:0.6} 100%{transform:scale(4);opacity:0} }
+@keyframes notifSlideIn { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes notifSlideOut{ from{transform:translateX(0);opacity:1} to{transform:translateX(110%);opacity:0} }
+@keyframes spinOrbit    { 0%{transform:rotate(0deg) translateX(20px) rotate(0deg)} 100%{transform:rotate(360deg) translateX(20px) rotate(-360deg)} }
+@keyframes lineFlash    { 0%,100%{opacity:0} 50%{opacity:1} }
+@keyframes microFloat   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+
+html, body { background: #060912; margin: 0; padding: 0; height: 100%; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Game Container ──
+   Root flex column that fills the full viewport.
+   Children: titlebar → tab bar → scrollable content area.
+   The ::before pseudo-element is the CRT scanline sweep. */
+#game {
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  font-family: 'Inter', Arial, sans-serif; color: #e2e8f0; position: relative;
+  background: linear-gradient(135deg,#060912 0%,#0a0f1e 40%,#07111a 70%,#060912 100%);
+}
+/* Subtle scanline overlay — only animates transform:translateY = GPU composited */
+#game::before {
+  content:''; position:fixed; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent,#60a5fa22,transparent);
+  animation: scanline 8s linear infinite;
+  pointer-events:none; z-index:1000;
+  will-change: transform;
+}
+
+/* ── TITLEBAR ──
+   Top bar showing the game name (left) and current money (right).
+   .titlebar-left  : animated gradient text logo
+   .titlebar-right : live money display with neon green glow */
+.titlebar {
+  background: linear-gradient(90deg,#0d1526 0%,#111f3a 50%,#0d1526 100%);
+  padding: 13px 22px;
+  display: flex; align-items: center;
+  border-bottom: 1px solid rgba(59,130,246,0.2);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(59,130,246,0.1), 0 4px 24px rgba(0,0,0,0.6);
+}
+/* Static glow line at bottom — no animation, static is free */
+.titlebar::before {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,#60a5fa55,#3b82f688,#60a5fa55,transparent);
+}
+/* Shimmer overlay: translateX on a pseudo-element — GPU composited, cheap */
+.titlebar::after {
+  content:''; position:absolute; top:0; left:0; width:60%; height:100%;
+  background: linear-gradient(90deg,transparent,rgba(96,165,250,0.04),transparent);
+  animation: shimmerSlide 5s linear infinite;
+  pointer-events:none;
+  will-change: transform;
+}
+.titlebar-left {
+  font-size: 18px; font-weight: 700; letter-spacing: 0.5px;
+  background: linear-gradient(135deg,#93c5fd,#60a5fa,#a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; background-size: 200% 100%;
+  animation: titleGradient 4s ease infinite;
+  display: flex; align-items: center; gap: 9px;
+  filter: drop-shadow(0 0 8px rgba(96,165,250,0.4));
+}
+.titlebar-right {
+  margin-left: auto; font-size: 18px; color: #4ade80; font-weight: 700;
+  animation: neonPulse 3s ease-in-out infinite;
+  text-shadow: 0 0 10px #4ade8066, 0 0 20px #22c55e33;
+  letter-spacing: 0.3px;
+  will-change: opacity;
+}
+
+/* ── MAIN TABS WRAPPER ──
+   Horizontal scrollable tab bar beneath the title bar.
+   .tab-scroll-btn  : left/right arrow buttons for narrow screens
+   .main-tabs       : scrollable container (hidden scrollbar)
+   .main-tab        : individual tab button — active state has blue underline */
+.tabs-wrapper {
+  display: flex; align-items: stretch; flex-shrink: 0;
+  background: linear-gradient(180deg,#0d1626 0%,#0a1020 100%);
+  border-bottom: 1px solid rgba(59,130,246,0.15);
+  box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  position: relative;
+}
+.tabs-wrapper::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,#3b82f633,transparent);
+  pointer-events:none;
+}
+.tab-scroll-btn {
+  flex-shrink:0; width:28px; display:flex; align-items:center; justify-content:center;
+  background:rgba(15,22,40,0.9); border:none; color:#4b5563; cursor:pointer;
+  font-size:13px; z-index:2; transition:all 0.15s;
+  border-right:1px solid rgba(255,255,255,0.04);
+}
+.tab-scroll-btn:last-child { border-right:none; border-left:1px solid rgba(255,255,255,0.04); }
+.tab-scroll-btn:hover { color:#93c5fd; background:rgba(59,130,246,0.12); }
+.tab-scroll-btn:active { color:#fff; }
+/* ── MAIN TABS ── */
+.main-tabs {
+  display: flex; flex: 1; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+.main-tabs::-webkit-scrollbar { display:none; }
+
+.main-tab {
+  padding: 9px 14px; font-size: 13px; font-weight: 500; cursor: pointer;
+  color: #4b5563; border-right: 1px solid rgba(255,255,255,0.04);
+  transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  display: flex; align-items: center; gap: 7px; user-select: none;
+  white-space: nowrap; flex-shrink: 0; position: relative; overflow: hidden;
+  letter-spacing: 0.2px;
+  will-change: transform;
+}
+.main-tab::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse at center top, rgba(59,130,246,0.08) 0%,transparent 70%);
+  opacity:0; transition: opacity 0.3s;
+}
+.main-tab::after {
+  content:''; position:absolute; bottom:0; left:50%; right:50%; height:2px;
+  background: linear-gradient(90deg,#3b82f6,#60a5fa,#93c5fd);
+  border-radius:2px 2px 0 0;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.main-tab:hover {
+  background: rgba(59,130,246,0.07);
+  color: #94a3b8; transform: translateY(-1px);
+}
+.main-tab:hover::before { opacity:1; }
+.main-tab:active { animation: tabPop 0.25s ease; }
+.main-tab.active {
+  background: linear-gradient(180deg,rgba(59,130,246,0.12) 0%,rgba(59,130,246,0.04) 100%);
+  color: #93c5fd; font-weight: 600;
+  text-shadow: 0 0 12px rgba(147,197,253,0.5);
+}
+.main-tab.active::after { left:8%; right:8%; }
+.main-tab.active::before { opacity:1; }
+
+/* ── CONTENT AREA ──
+   The main scrollable region below the tab bar.
+   Each tab panel is a .panel div; only .panel.active is shown. */
+.content {
+  flex: 1; overflow-y: auto; min-height: 0;
+  background: transparent;
+  scrollbar-width: thin; scrollbar-color: #1e3a5f #060912;
+  position: relative;
+}
+/* .panel and .panel.active are defined later with smooth transition styles */
+
+/* ── MONEY BAR ──
+   Summary card shown at the top of most panels.
+   Displays: Cash · Wallet balances · Income/s · Multiplier.
+   .mb-item  : a single stat column (label + value)
+   .mb-val   : large numeric value, scales on hover */
+.money-bar {
+  background: linear-gradient(135deg,#0d1626 0%,#111f3a 50%,#0d1526 100%);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: 14px; padding: 15px 20px; margin-bottom: 15px;
+  display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+  position: relative; overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(96,165,250,0.1);
+  /* No infinite animation — static border is fine */
+}
+/* Static top highlight line — no animation needed */
+.money-bar::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,#60a5fa88,transparent);
+}
+.mb-item { display: flex; flex-direction: column; }
+.mb-label { font-size: 11px; color: #374151; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+.mb-val { font-size: 19px; font-weight: 700; transition: transform 0.2s ease, opacity 0.2s ease; }
+.mb-val:hover { transform: scale(1.06); opacity: 0.85; }
+
+/* ── SLOTS GRID ──
+   The Base panel machine grid (5 columns).
+   .slot           : one machine card (or empty/buyable placeholder)
+   .slot.empty     : locked, dashed border, no action
+   .slot.buyable   : can be clicked to buy a new slot
+   .slot-rate      : green $/s label
+   .progress-bar   : production cycle progress bar inside the card
+   .sell-btn       : sell the machine back for 1/3 of its price */
+.slots-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.slot {
+  background: linear-gradient(145deg,#0d1626,#111f3a);
+  border: 1px solid rgba(59,130,246,0.12);
+  border-radius: 14px; padding: 14px 8px;
+  text-align: center; min-height: 155px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  position: relative; overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  animation: cardEntrance 0.4s ease backwards;
+  will-change: transform;
+}
+.slot::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,rgba(96,165,250,0.3),transparent);
+  opacity:0; transition: opacity 0.3s;
+}
+.slot:hover { transform: translateY(-3px) scale(1.01); box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.2); }
+.slot:hover::before { opacity:1; }
+.slot.empty { border-style: dashed; border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.01); }
+.slot.buyable { border-color: rgba(74,222,128,0.2); cursor: pointer; border-style: dashed; background: rgba(74,222,128,0.02); }
+.slot.buyable:hover { background: rgba(74,222,128,0.05); border-color: rgba(74,222,128,0.5); box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 16px rgba(74,222,128,0.1); }
+.slot-name { font-size: 11px; color: #6b7280; line-height: 1.4; text-align: center; font-weight: 500; }
+.slot-rate { font-size: 13px; color: #4ade80; font-weight: 600; text-shadow: 0 0 8px rgba(74,222,128,0.4); }
+.slot-earn { font-size: 11px; color: #374151; }
+.progress-bar {
+  width: 90%; height: 5px; background: rgba(255,255,255,0.05);
+  border-radius: 3px; overflow: hidden; margin-top: 5px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+.progress-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.45s linear;
+  animation: progressGlow 2s ease-in-out infinite;
+  will-change: opacity;
+}
+.sell-btn {
+  margin-top: 6px; width: 86%; padding: 5px 0;
+  background: linear-gradient(135deg,#2a0e0e,#3b1a1a);
+  color: #f87171; border: 1px solid rgba(248,113,113,0.25);
+  border-radius: 7px; cursor: pointer; font-size: 11px; font-weight: 600;
+  transition: transform 0.2s ease, opacity 0.2s ease; letter-spacing: 0.3px;
+}
+.sell-btn:hover { background: linear-gradient(135deg,#3b1a1a,#5a2a2a); box-shadow: 0 0 12px rgba(248,113,113,0.2); transform: translateY(-1px); }
+
+/* ── SHOP TIER TABS ──
+   Horizontal tab strip for selecting a machine tier in the Shop panel.
+   .tier-tab        : one tier button (T1 … T10)
+   .tier-tab.active : highlighted with tier accent colour
+   .locked-tier     : dimmed, pointer-events none — tier not yet unlocked */
+.tier-tabs-wrap { overflow-x: auto; margin-bottom: 15px; scrollbar-width: none; }
+.tier-tabs-wrap::-webkit-scrollbar { display:none; }
+.tier-tabs { display: flex; gap: 7px; min-width: max-content; }
+.tier-tab {
+  padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 10px;
+  cursor: pointer; border: 1px solid rgba(255,255,255,0.07); color: #4b5563;
+  background: rgba(255,255,255,0.03); white-space: nowrap;
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  position: relative; overflow: hidden; letter-spacing: 0.2px;
+}
+.tier-tab::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse at center,rgba(255,255,255,0.06) 0%,transparent 70%);
+  opacity:0; transition: opacity 0.2s;
+}
+.tier-tab:hover { border-color: rgba(255,255,255,0.15); color: #94a3b8; transform: translateY(-1px); }
+.tier-tab:hover::before { opacity:1; }
+.tier-tab.active { color: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.4); transform: translateY(-1px); }
+.tier-tab.locked-tier { opacity: 0.3; cursor: not-allowed; }
+
+.items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.shop-item {
+  background: linear-gradient(145deg,#0d1626,#111f3a);
+  border: 1px solid rgba(59,130,246,0.1);
+  border-radius: 14px; padding: 16px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  position: relative; overflow: hidden;
+  animation: cardEntrance 0.35s ease backwards;
+}
+.shop-item::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,rgba(96,165,250,0.25),transparent);
+  opacity:0; transition: opacity 0.3s;
+}
+.shop-item:hover:not(.locked-item) {
+  border-color: rgba(59,130,246,0.3);
+  transform: translateY(-3px) scale(1.005);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.15), 0 0 24px rgba(59,130,246,0.05);
+}
+.shop-item:hover::before { opacity:1; }
+.shop-item.locked-item { opacity: 0.3; }
+.buy-btn {
+  width: 100%; margin-top: 10px; padding: 9px;
+  border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; border: 1px solid;
+  transition: transform 0.2s ease, opacity 0.2s ease; letter-spacing: 0.3px; position: relative; overflow: hidden;
+}
+.buy-btn::before {
+  content:''; position:absolute; top:50%; left:50%; width:100%; height:100%;
+  background: radial-gradient(circle,rgba(255,255,255,0.15) 0%,transparent 70%);
+  transform: translate(-50%,-50%) scale(0); border-radius:50%;
+  transition: transform 0.4s;
+}
+.buy-btn:hover::before { transform: translate(-50%,-50%) scale(2); }
+.buy-btn:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.15); }
+.buy-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+/* ── BANK ──
+   Shared card style for Bank panel sections:
+   interest calculator, loans, currency exchange, and wallet display. */
+.bank-section {
+  background: linear-gradient(145deg,#0d1626,#111f3a);
+  border: 1px solid rgba(59,130,246,0.12);
+  border-radius: 14px; padding: 18px; margin-bottom: 15px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.bank-section::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,rgba(96,165,250,0.2),transparent);
+}
+.bank-title { font-size: 14px; color: #64748b; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.3px; }
+.currency-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.currency-card {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(59,130,246,0.1);
+  border-radius: 11px; padding: 14px 10px; text-align: center;
+  transition: transform 0.2s ease, opacity 0.2s ease; position: relative; overflow: hidden;
+}
+.currency-card:hover { border-color: rgba(59,130,246,0.3); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+.currency-icon { font-size: 30px; margin-bottom: 6px; animation: microFloat 3s ease-in-out infinite; display: block; will-change: transform; }
+.currency-name { font-size: 11px; color: #4b5563; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+.currency-amount { font-size: 18px; font-weight: 700; }
+.currency-eq { font-size: 11px; color: #374151; margin-top: 3px; }
+.exchange-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  transition: transform 0.2s ease, opacity 0.2s ease; border-radius: 8px; padding-left: 4px;
+}
+.exchange-row:last-child { border-bottom: none; }
+.exchange-row:hover { background: rgba(59,130,246,0.04); padding-left: 10px; }
+.ex-icon { font-size: 22px; width: 30px; text-align: center; }
+.ex-info { flex: 1; }
+.ex-name { font-size: 14px; color: #e2e8f0; font-weight: 500; }
+.ex-rate { font-size: 12px; color: #4b5563; }
+.ex-btn {
+  padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  border: 1px solid; transition: transform 0.2s ease, opacity 0.2s ease;
+  background: linear-gradient(135deg,#0d2a1a,#1e3a2a); color: #4ade80;
+  border-color: rgba(74,222,128,0.25); font-weight: 600;
+}
+.ex-btn:hover { background: linear-gradient(135deg,#1e3a2a,#2d5a3f); box-shadow: 0 0 16px rgba(74,222,128,0.2); transform: translateY(-1px); }
+.ex-btn:disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
+
+/* ── SLOT EXPAND ── */
+.slot-expand-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.slot-card {
+  background: linear-gradient(145deg,#0a1020,#0d1626);
+  border: 1px solid rgba(59,130,246,0.1);
+  border-radius: 11px; padding: 14px; display: flex; align-items: center; gap: 12px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.slot-card.owned { border-color: rgba(74,222,128,0.2); background: linear-gradient(145deg,#071a0e,#0d2a1a); }
+.slot-card.available { border-color: rgba(74,222,128,0.2); cursor: pointer; background: linear-gradient(145deg,#071a0e,#0d2018); }
+.slot-card.available:hover { background: linear-gradient(145deg,#0d2018,#0f1a0a); border-color: rgba(74,222,128,0.5); box-shadow: 0 0 20px rgba(74,222,128,0.1); transform: translateY(-2px); }
+.slot-card.locked { opacity: 0.25; }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.88);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.modal-box {
+  background: linear-gradient(145deg,#0d1626,#111f3a);
+  border: 1px solid rgba(59,130,246,0.25);
+  border-radius: 18px; padding: 30px; width: 330px; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(96,165,250,0.1);
+  animation: fadeInUp 0.25s ease;
+}
+.modal-btns { display: flex; gap: 12px; justify-content: center; margin-top: 18px; }
+.btn-yes {
+  padding: 10px 30px; background: linear-gradient(135deg,#2a0e0e,#3b1a1a);
+  color: #f87171; border: 1px solid rgba(248,113,113,0.3);
+  border-radius: 9px; cursor: pointer; font-size: 15px; font-weight: 600;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.btn-yes:hover { background: linear-gradient(135deg,#3b1a1a,#5a2a2a); box-shadow: 0 0 20px rgba(248,113,113,0.2); }
+.btn-no {
+  padding: 10px 30px; background: linear-gradient(135deg,#0d2a1a,#1e3a2a);
+  color: #4ade80; border: 1px solid rgba(74,222,128,0.3);
+  border-radius: 9px; cursor: pointer; font-size: 15px; font-weight: 600;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.btn-no:hover { background: linear-gradient(135deg,#1e3a2a,#2d5a3f); box-shadow: 0 0 20px rgba(74,222,128,0.2); }
+
+/* ── NOTIFICATION ── */
+.notif {
+  position: fixed; bottom: 24px; right: 24px;
+  background: linear-gradient(135deg,#0d2a1a,#1e3a2a);
+  color: #4ade80; border: 1px solid rgba(74,222,128,0.3);
+  border-radius: 12px; padding: 14px 20px; font-size: 14px; font-weight: 600;
+  opacity: 0; pointer-events: none; z-index: 9999; max-width: 290px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(74,222,128,0.1);
+  letter-spacing: 0.2px; transform: translateX(120%);
+  transition: none;
+}
+.notif.show {
+  animation: notifSlideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  opacity: 1; transform: translateX(0);
+}
+.notif.error {
+  background: linear-gradient(135deg,#2a0e0e,#3b1a1a);
+  color: #f87171; border-color: rgba(248,113,113,0.3);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(248,113,113,0.1);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#1e3a5f,#1e40af); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,#2d5a8f,#2563eb); }
+
+/* MONEY BAR - enhanced in global section above */
+.money-bar-legacy { background: #111827; border: 1px solid #1f2937; border-radius: 11px; padding: 14px 18px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.mb-item { display: flex; flex-direction: column; }
+.mb-label { font-size: 13px; color: #4b5563; text-transform: uppercase; letter-spacing: 0.4px; }
+.mb-val { font-size: 18px; font-weight: 500; }
+
+/* SLOTS - enhanced in global section above */
+.slots-grid-legacy { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.slot-legacy { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 12px 6px; text-align: center; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.slot-name-legacy { font-size: 12px; color: #6b7280; line-height: 1.3; text-align: center; }
+.slot-rate-legacy { font-size: 13px; color: #4ade80; }
+.slot-earn-legacy { font-size: 11px; color: #374151; }
+
+/* SHOP TIER TABS - enhanced in global section above */
+.tier-tabs-wrap-legacy { overflow-x: auto; margin-bottom: 14px; }
+.items-grid-legacy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.shop-item-legacy { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 14px; transition: all 0.12s; }
+.buy-btn-legacy { width: 100%; margin-top: 8px; padding: 8px; border-radius: 5px; cursor: pointer; font-size: 13px; border: 1px solid; transition: all 0.12s; }
+
+/* BANK - enhanced in global section above */
+.bank-section-legacy { background: #111827; border: 1px solid #1f2937; border-radius: 11px; padding: 16px; margin-bottom: 14px; }
+.bank-title-legacy { font-size: 15px; color: #9ca3af; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.currency-grid-legacy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.currency-card-legacy { background: #0d1117; border: 1px solid #1f2937; border-radius: 8px; padding: 12px 10px; text-align: center; }
+.currency-icon-legacy { font-size: 28px; margin-bottom: 5px; }
+.currency-name-legacy { font-size: 12px; color: #6b7280; }
+.currency-amount-legacy { font-size: 18px; font-weight: 500; }
+.currency-eq-legacy { font-size: 11px; color: #374151; margin-top: 2px; }
+.exchange-row-legacy { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #1f2937; }
+.exchange-row-legacy:last-child { border-bottom: none; }
+.ex-btn-legacy { padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; border: 1px solid; transition: all 0.12s; background: #1e3a2a; color: #4ade80; border-color: #2d5a3f; }
+
+/* SLOT EXPAND - enhanced in global section */
+.slot-expand-grid-legacy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.slot-card-legacy { background: #0d1117; border: 1px solid #1f2937; border-radius: 8px; padding: 13px; display: flex; align-items: center; gap: 11px; }
+
+/* MODAL - enhanced in global section */
+.modal-overlay-legacy { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.82); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal-box-legacy { background: #111827; border: 1px solid #374151; border-radius: 13px; padding: 28px; width: 320px; text-align: center; }
+.modal-btns-legacy { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+
+/* NOTIF - enhanced in global section */
+.notif-legacy { position: fixed; bottom: 20px; right: 20px; background: #1e3a2a; color: #4ade80; border: 1px solid #2d5a3f; border-radius: 9px; padding: 12px 18px; font-size: 15px; font-weight: 500; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999; }
+@keyframes darkPulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+@keyframes powerFlicker { 0%{opacity:1} 30%{opacity:0.2} 60%{opacity:0.75} 100%{opacity:0.35} }
+@keyframes blackoutFlash { 0%{background:rgba(0,0,0,0)} 50%{background:rgba(0,0,0,1)} 100%{background:rgba(0,0,0,0)} }
+
+/* LOAN */
+.loan-section { background:linear-gradient(145deg,#0d1626,#111f3a); border:1px solid rgba(59,130,246,0.12); border-radius:14px; padding:18px; margin-bottom:15px; position:relative; overflow:hidden; }
+.loan-section::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(96,165,250,0.2),transparent); }
+.loan-title { font-size:14px; color:#64748b; margin-bottom:13px; display:flex; align-items:center; gap:8px; font-weight:600; }
+.loan-status-card { background:rgba(0,0,0,0.3); border:1px solid rgba(59,130,246,0.1); border-radius:10px; padding:14px; margin-bottom:11px; }
+.loan-locked-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(20,0,0,0.65); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#f87171; font-weight:700; letter-spacing:1.5px; pointer-events:none; backdrop-filter:blur(2px); }
+.loan-input { background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.12); border-radius:9px; padding:10px 13px; color:#e2e8f0; font-size:15px; outline:none; width:100%; font-family:'Inter',sans-serif; transition: transform 0.2s ease, opacity 0.2s ease; }
+.loan-input:focus { border-color:rgba(96,165,250,0.4); box-shadow:0 0 0 3px rgba(96,165,250,0.1); }
+.loan-btn { padding:10px 0; border-radius:9px; cursor:pointer; font-size:13px; font-weight:600; border:1px solid; transition: transform 0.2s ease, opacity 0.2s ease; width:100%; margin-top:7px; letter-spacing:0.3px; }
+.loan-borrow-btn { background:linear-gradient(135deg,#071428,#0d1f3c); color:#60a5fa; border-color:rgba(96,165,250,0.25); }
+.loan-borrow-btn:hover { background:linear-gradient(135deg,#0d1f3c,#1e3a5f); box-shadow:0 0 16px rgba(96,165,250,0.15); transform:translateY(-1px); }
+.loan-borrow-btn:disabled { opacity:0.25; cursor:not-allowed; transform:none; }
+.loan-repay-btn { background:linear-gradient(135deg,#0d2a1a,#1e3a2a); color:#4ade80; border-color:rgba(74,222,128,0.25); }
+.loan-repay-btn:hover { background:linear-gradient(135deg,#1e3a2a,#2d5a3f); box-shadow:0 0 16px rgba(74,222,128,0.15); transform:translateY(-1px); }
+.loan-repay-btn:disabled { opacity:0.25; cursor:not-allowed; transform:none; }
+@keyframes bankruptPulse { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.01)} }
+
+/* ELECTRICITY */
+.elec-status-card {
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.15); border-radius:14px; padding:18px; margin-bottom:15px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4); position:relative; overflow:hidden;
+}
+.elec-status-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(96,165,250,0.3),transparent);
+}
+.power-bar-wrap { height:20px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.06); border-radius:8px; overflow:hidden; margin:9px 0; box-shadow:inset 0 2px 6px rgba(0,0,0,0.6); }
+.power-bar-fill { height:100%; border-radius:8px; transition:width 1s linear; animation: progressGlow 2s ease-in-out infinite; will-change: opacity; }
+.fuel-card {
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.1); border-radius:12px; padding:15px; margin-bottom:9px;
+  cursor:pointer; transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.fuel-card:hover:not(.fuel-disabled) { border-color:rgba(251,191,36,0.4); background:linear-gradient(145deg,#1a1205,#1e1a05); box-shadow:0 8px 24px rgba(0,0,0,0.5),0 0 16px rgba(251,191,36,0.08); transform:translateY(-2px); }
+.fuel-card.fuel-best { border-color:rgba(74,222,128,0.25); }
+.fuel-card.fuel-disabled { opacity:0.3; cursor:not-allowed; }
+
+/* ── POWER TOGGLE ──
+   The on/off switch in the Electricity panel.
+   .toggle-switch : label wrapper (positions the hidden checkbox + custom slider)
+   .toggle-slider : custom checkbox visual track
+   Checked state = power ON (green); unchecked = power OFF (grey) */
+.power-toggle-wrap {
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;
+  padding:18px 20px;
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.12); border-radius:14px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+.toggle-switch { position:relative; width:60px; height:30px; cursor:pointer; }
+.toggle-switch input { opacity:0; width:0; height:0; }
+.toggle-slider {
+  position:absolute; top:0; left:0; right:0; bottom:0;
+  background:rgba(255,255,255,0.06); border-radius:15px; transition:0.35s;
+  border:1px solid rgba(255,255,255,0.1);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,0.4);
+}
+.toggle-slider:before {
+  content:''; position:absolute; width:24px; height:24px; left:2px; top:2px;
+  background:linear-gradient(135deg,#6b7280,#9ca3af); border-radius:50%; transition:0.35s;
+  box-shadow:0 2px 8px rgba(0,0,0,0.4);
+}
+.toggle-switch input:checked + .toggle-slider { background:rgba(74,222,128,0.15); border-color:rgba(74,222,128,0.3); box-shadow:0 0 16px rgba(74,222,128,0.2),inset 0 2px 6px rgba(0,0,0,0.4); }
+.toggle-switch input:checked + .toggle-slider:before { transform:translateX(30px); background:linear-gradient(135deg,#22c55e,#4ade80); box-shadow:0 0 12px rgba(74,222,128,0.6),0 2px 8px rgba(0,0,0,0.3); }
+
+/* ── MANUAL POWER OFF OVERLAY ──
+   .mpo-box : centered card shown when player manually turns off power.
+   Background is near-black with red accent to indicate an "off" state. */
+#manual-power-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.95); backdrop-filter:blur(8px); z-index:450; flex-direction:column; align-items:center; justify-content:center; font-family:'Courier New',monospace; }
+.mpo-box { width:330px; max-width:92vw; background:linear-gradient(145deg,#0a0a0a,#140505); border:1px solid rgba(248,113,113,0.3); border-radius:16px; padding:30px; text-align:center; box-shadow:0 0 60px rgba(248,113,113,0.1),0 24px 60px rgba(0,0,0,0.8); animation: fadeInUp 0.3s ease; }
+
+/* ── MARKET ──
+   .market-tab          : Normal / Mid / Black / My-Listings filter tabs
+   .market-items-grid   : 2-column card grid for shop listings
+   .mkt-card            : individual market item card
+   .mkt-buy-btn         : purchase button (disabled when insufficient funds) */
+.market-tabs { display:flex; gap:7px; margin-bottom:15px; flex-wrap:wrap; }
+.market-tab {
+  padding:9px 18px; border-radius:10px; cursor:pointer;
+  border:1px solid rgba(255,255,255,0.07); color:#4b5563;
+  background:rgba(255,255,255,0.03); font-size:14px; font-weight:500;
+  transition: transform 0.2s ease, color 0.2s ease; white-space:nowrap;
+  position:relative; overflow:hidden;
+}
+.market-tab:hover { border-color:rgba(255,255,255,0.15); color:#94a3b8; transform:translateY(-1px); }
+.market-tab.active { color:#fff; }
+.market-tab.mt-normal.active { background:linear-gradient(135deg,#071a0e,#0d2a1a); color:#4ade80; border-color:rgba(74,222,128,0.3); box-shadow:0 0 16px rgba(74,222,128,0.1); }
+.market-tab.mt-mid.active { background:linear-gradient(135deg,#071428,#0d1f3c); color:#60a5fa; border-color:rgba(96,165,250,0.3); box-shadow:0 0 16px rgba(96,165,250,0.1); }
+.market-tab.mt-black.active { background:linear-gradient(135deg,#1a0808,#2a1010); color:#f87171; border-color:rgba(248,113,113,0.3); box-shadow:0 0 16px rgba(248,113,113,0.1); }
+.market-tab.mt-my.active { background:linear-gradient(135deg,#1a1208,#2a1f05); color:#fbbf24; border-color:rgba(251,191,36,0.3); box-shadow:0 0 16px rgba(251,191,36,0.1); }
+.market-items-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.mkt-card {
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.1); border-radius:12px; padding:14px;
+  transition: transform 0.2s ease; position:relative; overflow:hidden;
+  animation: cardEntrance 0.35s ease backwards;
+}
+.mkt-card:hover { border-color:rgba(59,130,246,0.25); transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,0.5); }
+.mkt-card .mkt-img { font-size:32px; text-align:center; margin-bottom:7px; animation: microFloat 3s ease-in-out infinite; will-change: transform; }
+.mkt-card .mkt-name { font-size:13px; color:#e2e8f0; font-weight:600; margin-bottom:3px; line-height:1.3; }
+.mkt-card .mkt-seller { font-size:11px; color:#4b5563; margin-bottom:5px; }
+.mkt-card .mkt-price { font-size:14px; color:#fbbf24; font-weight:700; text-shadow:0 0 8px rgba(251,191,36,0.4); }
+.mkt-card .mkt-chance { font-size:11px; margin-top:3px; }
+.mkt-buy-btn {
+  width:100%; margin-top:8px; padding:7px; border-radius:8px;
+  cursor:pointer; font-size:12px; border:1px solid; transition: transform 0.2s ease, opacity 0.2s ease; font-weight:600;
+}
+.mkt-buy-btn:not(:disabled):hover { transform:translateY(-1px); filter:brightness(1.15); }
+.mkt-buy-btn:disabled { opacity:0.25; cursor:not-allowed; }
+.mkt-timer { font-size:12px; color:#374151; margin-top:5px; text-align:center; }
+
+/* ── INVENTORY ──
+   .inv-grid   : 3-column grid of owned items
+   .inv-card   : single item card with Use / Recycle action buttons
+   .inv-slot-info : top bar showing used/max inventory slots */
+.inv-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.inv-card {
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.1); border-radius:11px; padding:12px; text-align:center;
+  transition: transform 0.2s ease, opacity 0.2s ease; animation: cardEntrance 0.35s ease backwards;
+}
+.inv-card:hover { border-color:rgba(59,130,246,0.25); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+.inv-card .inv-img { font-size:28px; margin-bottom:5px; display:block; animation: microFloat 3s ease-in-out infinite; will-change: transform; }
+.inv-card .inv-name { font-size:11px; color:#9ca3af; line-height:1.3; margin-bottom:5px; font-weight:500; }
+.inv-card .inv-tier { font-size:10px; padding:2px 7px; border-radius:5px; display:inline-block; margin-bottom:6px; font-weight:600; letter-spacing:0.3px; }
+.inv-card .inv-btns { display:flex; gap:5px; }
+.inv-card .inv-btns button { flex:1; padding:5px 2px; font-size:10px; border-radius:6px; cursor:pointer; border:1px solid; transition: transform 0.2s ease, opacity 0.2s ease; font-weight:600; }
+.inv-card .inv-btns button:hover { transform:translateY(-1px); filter:brightness(1.2); }
+.inv-slot-info {
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.12); border-radius:11px; padding:14px; margin-bottom:13px;
+  display:flex; align-items:center; justify-content:space-between; font-size:14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+/* ── RECYCLE SHOP ──
+   Players recycle inventory items to earn ♻️ Recycle Points.
+   Those points are spent here to buy currencies or extra inventory slots.
+   .rshop-card : one redeemable reward card
+   .rshop-btn  : "Redeem" button, disabled when not enough points */
+.rshop-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.rshop-card {
+  background:linear-gradient(145deg,#071a0e,#0d2a1a);
+  border:1px solid rgba(74,222,128,0.15); border-radius:14px; padding:16px;
+  transition: transform 0.2s ease, opacity 0.2s ease; animation: cardEntrance 0.35s ease backwards;
+}
+.rshop-card:hover { border-color:rgba(74,222,128,0.3); transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,0.5),0 0 16px rgba(74,222,128,0.07); }
+.rshop-card .rshop-icon { font-size:30px; margin-bottom:7px; display:block; animation: microFloat 3s ease-in-out infinite; will-change: transform; }
+.rshop-card .rshop-name { font-size:14px; color:#e2e8f0; font-weight:600; margin-bottom:5px; }
+.rshop-card .rshop-cost { font-size:13px; color:#4ade80; font-weight:600; text-shadow:0 0 8px rgba(74,222,128,0.3); }
+.rshop-btn {
+  width:100%; margin-top:9px; padding:8px; border-radius:8px; cursor:pointer; font-size:13px;
+  background:linear-gradient(135deg,#0d2a1a,#1e3a2a); color:#4ade80;
+  border:1px solid rgba(74,222,128,0.25); font-weight:600; transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.rshop-btn:not(:disabled):hover { background:linear-gradient(135deg,#1e3a2a,#2d5a3f); box-shadow:0 0 16px rgba(74,222,128,0.2); transform:translateY(-1px); }
+.rshop-btn:disabled { opacity:0.25; cursor:not-allowed; }
+
+/* ── MY LISTINGS ──
+   Cards for items the player listed for sale on the Player Market.
+   Sold automatically by the buyer-bot every 20 seconds. */
+.listing-card {
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.1); border-radius:12px; padding:14px; margin-bottom:10px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.listing-card:hover { border-color:rgba(59,130,246,0.2); transform:translateY(-2px); }
+
+@keyframes flashGreen { 0%{background:linear-gradient(145deg,#071a0e,#0d2a1a)} 100%{background:linear-gradient(145deg,#0d1626,#111f3a)} }
+
+/* ── LOTTERY ──
+   .lball              : one lottery ball (idle / spinning / hit / miss / jackpot)
+   .lbet-btn           : bet amount selector button
+   Jackpot overlay uses a separate full-screen effect system (see below). */
+.lball { width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;font-family:'Inter',monospace;transition:all 0.3s;border:2px solid; }
+.lball-idle { background:rgba(0,0,0,0.4);border-color:rgba(255,255,255,0.08);color:#374151; }
+.lball-spin { background:linear-gradient(135deg,#1a1a3a,#0d0a2a);border-color:#6d28d9;color:#a78bfa;animation:lspin 0.12s infinite alternate; box-shadow:0 0 12px #7c3aed66; }
+.lball-hit { background:linear-gradient(135deg,#071a0e,#0d2a1a);border-color:#4ade80;color:#4ade80;box-shadow:0 0 16px rgba(74,222,128,0.4); }
+.lball-miss { background:linear-gradient(135deg,#1a0808,#2a0e0e);border-color:#dc2626;color:#f87171;box-shadow:0 0 12px rgba(248,113,113,0.2); }
+.lball-jackpot { background:linear-gradient(135deg,#2a0a4a,#1a0a3a);border-color:#e879f9;color:#e879f9;animation:ljackpot 0.6s infinite alternate;box-shadow:0 0 24px #e879f9aa; }
+@keyframes lspin { 0%{transform:scale(0.92) rotate(-5deg);opacity:0.6} 100%{transform:scale(1.05) rotate(5deg);opacity:1} }
+@keyframes ljackpot { 0%{opacity:0.6;transform:scale(1)} 100%{opacity:1;transform:scale(1.06)} }
+.lbet-btn {
+  padding:7px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px;color:#6b7280;cursor:pointer;font-size:13px;font-weight:600;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.lbet-btn:hover { border-color:rgba(109,40,217,0.5);color:#c4b5fd;background:rgba(109,40,217,0.08);transform:translateY(-1px); }
+.lbet-all { border-color:rgba(124,58,237,0.3);color:#a78bfa;background:rgba(124,58,237,0.06); }
+.lhist-row {
+  background:linear-gradient(145deg,#0d1626,#111f3a);
+  border:1px solid rgba(59,130,246,0.1);border-radius:9px;padding:10px 14px;
+  display:flex;align-items:center;gap:12px;font-size:12px;transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.lhist-row:hover { border-color:rgba(59,130,246,0.2); }
+
+/* ── INTERNET PACKAGES (Terminal) ──
+   Modal shown when the player types [buy_internet] in the terminal.
+   .inet-pkg           : one internet plan option card
+   .inet-pkg.selected  : highlighted when chosen
+   .inet-pkg.best      : gold border on the best-value plan
+   .inet-buy-btn       : confirm purchase button */
+.inet-modal { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.88); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:200; }
+.inet-box {
+  background:linear-gradient(145deg,#060d1a,#0a1426);
+  border:1px solid rgba(74,222,128,0.2); border-radius:18px; padding:26px; width:350px;
+  font-family:'Inter','Courier New',monospace;
+  box-shadow:0 20px 60px rgba(0,0,0,0.8),0 0 0 1px rgba(74,222,128,0.1);
+  animation: fadeInUp 0.25s ease;
+}
+.inet-title { font-size:17px; color:#4ade80; font-weight:700; margin-bottom:5px; text-shadow:0 0 12px rgba(74,222,128,0.4); }
+.inet-sub { font-size:12px; color:#1e3a1a; margin-bottom:17px; }
+.inet-pkg {
+  background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px; padding:13px 16px; margin-bottom:10px; cursor:pointer;
+  transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1); position:relative;
+}
+.inet-pkg:hover { border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.04); transform:translateY(-1px); }
+.inet-pkg.selected { border-color:rgba(74,222,128,0.5); background:rgba(74,222,128,0.06); box-shadow:0 0 16px rgba(74,222,128,0.1); }
+.inet-pkg.best { border-color:rgba(251,191,36,0.3); }
+.inet-pkg.best:hover { border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.04); }
+.inet-pkg.best.selected { border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.06); box-shadow:0 0 16px rgba(251,191,36,0.1); }
+.inet-pkg-name { font-size:14px; color:#e2e8f0; font-weight:700; }
+.inet-pkg-price { font-size:13px; color:#fbbf24; margin:3px 0; font-weight:600; }
+.inet-pkg-desc { font-size:11px; color:#4b5563; }
+.inet-pkg-badge { position:absolute; top:9px; right:11px; font-size:10px; padding:2px 8px; border-radius:5px; font-weight:700; }
+.inet-actions { display:flex; gap:9px; margin-top:15px; }
+.inet-buy-btn {
+  flex:1; padding:11px; border-radius:9px; cursor:pointer; font-size:13px; font-weight:700;
+  background:linear-gradient(135deg,#0d2a1a,#1e3a2a); color:#4ade80;
+  border:1px solid rgba(74,222,128,0.25); transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.inet-buy-btn:hover { background:linear-gradient(135deg,#1e3a2a,#2d5a3f); box-shadow:0 0 20px rgba(74,222,128,0.2); transform:translateY(-1px); }
+.inet-buy-btn:disabled { opacity:0.25; cursor:not-allowed; transform:none; }
+.inet-cancel-btn {
+  padding:11px 20px; border-radius:9px; cursor:pointer; font-size:13px; font-weight:600;
+  background:rgba(255,255,255,0.03); color:#4b5563; border:1px solid rgba(255,255,255,0.08); transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.inet-cancel-btn:hover { background:rgba(255,255,255,0.06); color:#9ca3af; }
+.inet-status-bar { font-size:11px; padding:7px 12px; border-radius:8px; margin-bottom:11px; display:flex; align-items:center; justify-content:space-between; font-weight:600; }
+.inet-status-bar.online { background:rgba(74,222,128,0.06); border:1px solid rgba(74,222,128,0.2); color:#4ade80; }
+.inet-status-bar.offline { background:rgba(248,113,113,0.06); border:1px solid rgba(248,113,113,0.2); color:#f87171; }
+
+/* ── OS UPDATE PROGRESS BAR (Terminal) ──
+   Shown inside the terminal output while an OS update downloads.
+   .update-progress-bar  : outer track
+   .update-progress-fill : animated green fill, width updated via JS steps[]
+   .t-line.update        : monospace download label above the bar */
+.update-progress-wrap { margin: 7px 0; }
+.update-progress-bar { width: 100%; height: 10px; background: rgba(74,222,128,0.05); border: 1px solid rgba(74,222,128,0.15); border-radius: 5px; overflow: hidden; box-shadow:inset 0 2px 4px rgba(0,0,0,0.4); }
+.update-progress-fill { height: 100%; background: linear-gradient(90deg, #166534, #16a34a, #4ade80); border-radius: 5px; transition: width 0.18s linear; width: 0%; box-shadow:0 0 8px rgba(74,222,128,0.4); }
+.t-line.update { color: #22c55e; font-family: monospace; }
+
+/* ── BOSS DIALOGUE CHOICES ──
+   Panel shown at the bottom of the terminal when talking to a Boss NPC.
+   The player picks a dialogue option using [say N] commands.
+   .boss-choice-btn : one selectable dialogue line */
+.boss-choices-panel { background:rgba(0,0,0,0.6); border-top:1px solid rgba(74,222,128,0.12); padding:11px 14px; flex-shrink:0; display:none; backdrop-filter:blur(4px); }
+.boss-choices-panel.visible { display:block; }
+.boss-choices-title { font-size:11px; color:#1e3a1e; font-family:'Courier New',monospace; margin-bottom:9px; letter-spacing:0.5px; }
+.boss-choices-grid { display:flex; flex-direction:column; gap:7px; }
+.boss-choice-btn {
+  background:rgba(74,222,128,0.04); border:1px solid rgba(74,222,128,0.15); border-radius:9px;
+  padding:9px 13px; color:#a7f3a7; font-family:'Courier New',monospace; font-size:12px;
+  cursor:pointer; text-align:left; transition: transform 0.2s ease, opacity 0.2s ease; line-height:1.4;
+}
+.boss-choice-btn:hover { background:rgba(74,222,128,0.1); border-color:rgba(74,222,128,0.4); color:#e2e8f0; transform:translateX(4px); }
+.boss-choice-btn .choice-num { color:#4ade80; font-weight:bold; margin-right:7px; }
+
+/* ── COMPUTER TERMINAL ──
+   Full-height monospace terminal panel (like a real shell).
+   .terminal-wrap       : outer container (dark CRT-style)
+   .terminal-output     : scrollable log of lines (.t-line.*)
+   .terminal-input-row  : bottom input row with prompt + text field
+   Line types: .sys .cmd .err .info .warn .vendor .success .disconnect */
+.terminal-wrap {
+  background:linear-gradient(180deg,#060a0e 0%,#070c12 100%);
+  border:1px solid rgba(74,222,128,0.15); border-radius:14px;
+  height:calc(100vh - 200px); min-height:340px; display:flex; flex-direction:column;
+  font-family:'Courier New',monospace; overflow:hidden;
+  box-shadow:0 8px 40px rgba(0,0,0,0.7),0 0 0 1px rgba(74,222,128,0.05), inset 0 0 100px rgba(74,222,128,0.01);
+}
+.terminal-titlebar { background:#111; border-bottom:1px solid #1a2a1a; padding:8px 14px; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.terminal-dot { width:10px; height:10px; border-radius:50%; }
+.terminal-output { flex:1; overflow-y:auto; padding:12px 14px; font-size:13px; line-height:1.7; }
+.terminal-output::-webkit-scrollbar { width:4px; }
+.terminal-output::-webkit-scrollbar-thumb { background:#1f3a1f; }
+.t-line { margin:0; white-space:pre-wrap; word-break:break-all; }
+.t-line.sys { color:#2d6a2d; }
+.t-line.cmd { color:#4ade80; }
+.t-line.err { color:#f87171; }
+.t-line.info { color:#60a5fa; }
+.t-line.warn { color:#fbbf24; }
+.t-line.vendor { color:#a78bfa; }
+.t-line.vendor-name { color:#e879f9; font-weight:bold; }
+.t-line.price { color:#fbbf24; }
+.t-line.success { color:#4ade80; font-weight:bold; }
+.t-line.disconnect { color:#f87171; font-weight:bold; }
+.terminal-input-row { display:flex; align-items:center; background:#050505; border-top:1px solid #1a2a1a; padding:8px 12px; flex-shrink:0; }
+.terminal-prompt { color:#4ade80; font-family:'Courier New',monospace; font-size:13px; margin-right:6px; white-space:nowrap; }
+.terminal-input { flex:1; background:transparent; border:none; outline:none; color:#e2e8f0; font-family:'Courier New',monospace; font-size:13px; caret-color:#4ade80; }
+.blink { animation:blink 1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+/* ── TUTORIAL OVERLAY ──
+   Full-screen overlay shown on first launch.
+   .tut-box    : centered card that scrolls if content is tall
+   .tut-logo   : bouncing emoji logo
+   Dismissed by clicking the "Start" button which calls startTutorial(). */
+#tutorial-overlay {
+  position: fixed; top:0; left:0; right:0; bottom:0;
+  background: rgba(0,0,0,0.9);
+  z-index: 800;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+  font-family: 'Inter', Arial, sans-serif;
+}
+.tut-box {
+  background: linear-gradient(145deg,#0a1020,#0d1626);
+  border: 1px solid rgba(59,130,246,0.25);
+  border-radius: 20px;
+  width: 350px; max-width: 94vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(96,165,250,0.1);
+  animation: fadeInUp 0.35s ease;
+}
+.tut-box::-webkit-scrollbar { width: 4px; }
+.tut-box::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#1e3a5f,#1e40af); border-radius: 2px; }
+.tut-header {
+  background: linear-gradient(135deg,#071428 0%,#0d1f3c 50%,#0a1828 100%);
+  border-radius: 20px 20px 0 0;
+  padding: 24px 22px 20px;
+  text-align: center;
+  border-bottom: 1px solid rgba(59,130,246,0.15);
+  position: relative; overflow: hidden;
+}
+.tut-header::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,rgba(96,165,250,0.4),transparent);
+}
+.tut-logo { font-size: 38px; margin-bottom: 9px; animation: microFloat 3s ease-in-out infinite; }
+.tut-game-title {
+  font-size: 21px; font-weight: 800; letter-spacing: 2px; margin-bottom: 5px;
+  background: linear-gradient(135deg,#93c5fd,#60a5fa,#a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  background-size: 200% 100%; animation: titleGradient 4s ease infinite;
+  filter: drop-shadow(0 0 8px rgba(96,165,250,0.3));
+}
+.tut-welcome { font-size: 13px; color: #4b5563; }
+.tut-step-indicator {
+  display: flex; justify-content: center; gap: 8px;
+  padding: 15px 22px 0;
+}
+.tut-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.07); transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+.tut-dot.active { background: #60a5fa; transform: scale(1.4); box-shadow: 0 0 8px rgba(96,165,250,0.6); }
+.tut-dot.done { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.4); }
+.tut-step { display: none; padding: 20px 22px; animation: fadeInUp 0.3s ease; }
+.tut-step.visible { display: block; }
+.tut-step-icon { font-size: 32px; margin-bottom: 11px; text-align: center; animation: microFloat 3s ease-in-out infinite; }
+.tut-step-title { font-size: 17px; font-weight: 700; color: #e2e8f0; margin-bottom: 9px; text-align: center; }
+.tut-step-body { font-size: 13px; color: #94a3b8; line-height: 1.75; margin-bottom: 15px; }
+.tut-step-body strong { color: #e2e8f0; }
+.tut-tip {
+  background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.15); border-radius: 10px;
+  padding: 11px 14px; font-size: 12px; color: #64748b;
+  border-left: 3px solid #2563eb;
+  margin-bottom: 15px; line-height: 1.6;
+}
+.tut-tip strong { color: #93c5fd; }
+.tut-nav { display: flex; gap: 10px; padding: 0 22px 22px; }
+.tut-btn-back {
+  flex: 1; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600;
+  background: rgba(255,255,255,0.04); color: #4b5563; border: 1px solid rgba(255,255,255,0.08);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.tut-btn-back:hover { background: rgba(255,255,255,0.08); color: #9ca3af; }
+.tut-btn-next {
+  flex: 2; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 14px;
+  font-weight: 700; background: linear-gradient(135deg,#1d4ed8,#2563eb);
+  color: #fff; border: none; transition: transform 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 4px 20px rgba(29,78,216,0.4);
+}
+.tut-btn-next:hover { background: linear-gradient(135deg,#2563eb,#3b82f6); box-shadow: 0 6px 28px rgba(59,130,246,0.4); transform: translateY(-1px); }
+.tut-btn-finish {
+  flex: 2; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 14px;
+  font-weight: 800; background: linear-gradient(135deg,#166534,#16a34a);
+  color: #fff; border: none; transition: transform 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 4px 20px rgba(22,163,74,0.4);
+  animation: tutFinishPulse 1.5s ease-in-out infinite;
+}
+.tut-btn-finish:hover { background: linear-gradient(135deg,#15803d,#22c55e); animation: none; box-shadow: 0 6px 28px rgba(34,197,94,0.4); transform: translateY(-1px); }
+@keyframes tutFinishPulse { 0%,100%{opacity:0.8} 50%{opacity:1} }
+.tut-checklist { list-style: none; margin: 0 0 15px; padding: 0; }
+.tut-checklist li { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: #94a3b8; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.05); line-height: 1.4; }
+.tut-checklist li:last-child { border-bottom: none; }
+.tut-checklist li span { font-size:16px; flex-shrink:0; }
+.tut-progress-bar { height: 3px; background: rgba(255,255,255,0.06); margin: 0 22px; border-radius: 2px; overflow: hidden; }
+.tut-progress-fill { height: 100%; background: linear-gradient(90deg,#2563eb,#4ade80); border-radius: 2px; transition: width 0.4s ease; box-shadow: 0 0 8px rgba(74,222,128,0.4); }
+
+/* ══ LOTTERY AD LIVE WINNERS ══ */
+.lott-winners-feed {
+  background: #0d0818; border: 1px solid #4c1d9533;
+  border-radius: 8px; padding: 8px 10px; margin-bottom: 12px;
+  overflow: hidden; max-height: 110px;
+  position: relative;
+}
+.lott-winners-title { font-size: 10px; color: #7c3aed; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+.lott-winners-live-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; animation: liveDotBlink 1s ease-in-out infinite; flex-shrink: 0; }
+@keyframes liveDotBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.lott-winner-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 0; font-size: 11px;
+  animation: winnerSlideIn 0.4s ease-out;
+  border-bottom: 1px solid #1a0a2a;
+}
+.lott-winner-row:last-child { border-bottom: none; }
+@keyframes winnerSlideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+.lott-winner-avatar { font-size: 14px; flex-shrink: 0; }
+.lott-winner-name { color: #c4b5fd; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lott-winner-prize { color: #4ade80; font-weight: 700; flex-shrink: 0; }
+.lott-winner-prize.jackpot { color: #fde68a; }
+.lott-winner-time { font-size: 10px; color: #374151; flex-shrink: 0; }
+
+/* ══ LOAN AD BANNER ══ */
+.loan-ad-banner {
+  position: relative;
+  background: linear-gradient(135deg, #0a1628 0%, #0d1f3c 40%, #0a1a2e 70%, #111827 100%);
+  border: 1px solid #2563eb55;
+  border-radius: 13px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 0 24px #1d4ed820, inset 0 1px 0 #3b82f620;
+}
+.loan-ad-banner:hover { border-color: #3b82f688; box-shadow: 0 0 36px #1d4ed840, inset 0 1px 0 #60a5fa44; transform: translateY(-1px); }
+.loan-ad-banner::before { content:''; position:absolute; top:-30px; right:-30px; width:120px; height:120px; background:radial-gradient(circle,#3b82f622 0%,transparent 70%); border-radius:50%; pointer-events:none; }
+.loan-ad-banner::after { content:''; position:absolute; bottom:-20px; left:40%; width:180px; height:80px; background:radial-gradient(ellipse,#1d4ed815 0%,transparent 70%); pointer-events:none; }
+.loan-ad-tag { display:inline-block; background:linear-gradient(90deg,#1d4ed8,#2563eb); color:#bfdbfe; font-size:10px; font-weight:700; letter-spacing:1.5px; padding:2px 9px; border-radius:4px; margin-bottom:8px; text-transform:uppercase; }
+.loan-ad-title { font-size:17px; font-weight:700; color:#e2e8f0; margin-bottom:4px; line-height:1.3; }
+.loan-ad-title span { color:#60a5fa; }
+.loan-ad-sub { font-size:12px; color:#6b7280; margin-bottom:12px; line-height:1.5; }
+.loan-ad-features { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.loan-ad-feature { display:flex; align-items:center; gap:5px; background:#0f1f3d; border:1px solid #1e40af44; border-radius:6px; padding:5px 10px; font-size:12px; color:#93c5fd; }
+.loan-ad-feature .laf-icon { font-size:14px; }
+.loan-ad-btn { display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#1d4ed8,#2563eb); color:#fff; font-size:14px; font-weight:700; padding:10px 22px; border-radius:8px; border:none; cursor:pointer; transition:all 0.15s; box-shadow:0 4px 16px #1d4ed850; letter-spacing:0.3px; }
+.loan-ad-btn:hover { background:linear-gradient(135deg,#2563eb,#3b82f6); box-shadow:0 6px 24px #2563eb70; transform:translateY(-1px); }
+.loan-ad-btn:active { transform:translateY(0); }
+.loan-ad-logo { position:absolute; top:14px; right:18px; font-size:28px; opacity:0.25; pointer-events:none; }
+.loan-ad-rate { position:absolute; bottom:16px; right:18px; text-align:right; }
+.loan-ad-rate-val { font-size:22px; font-weight:800; color:#3b82f6; line-height:1; }
+.loan-ad-rate-label { font-size:10px; color:#374151; letter-spacing:0.5px; }
+.ad-dismiss-btn { position:absolute; top:9px; right:9px; background:#1a1a2a; border:1px solid #374151; color:#9ca3af; font-size:10px; padding:3px 8px; border-radius:5px; cursor:pointer; transition:all 0.12s; z-index:5; font-weight:600; }
+.ad-dismiss-btn:hover { background:#2a2a3a; color:#e2e8f0; border-color:#60a5fa; }
+@keyframes loanAdGlow { 0%,100%{opacity:0.7} 50%{opacity:1} }
+.loan-ad-banner { animation: loanAdGlow 3s ease-in-out infinite; }
+.loan-ad-banner:hover { animation: none; }
+
+/* ══ LOTTERY AD BANNER ══ */
+.lottery-ad-banner {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #0d0720 0%, #130825 40%, #0d0720 100%);
+  border: 1px solid #7c3aed44;
+  border-radius: 13px; padding: 14px 14px 12px; margin-bottom: 14px;
+  cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.lottery-ad-banner:hover { border-color: #7c3aed88; transform: translateY(-1px); }
+.lottery-ad-stars { position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; overflow:hidden; }
+.lottery-ad-stars span { position:absolute; width:3px; height:3px; background:#a78bfa; border-radius:50%; animation: lottStarTwinkle var(--d,2s) var(--delay,0s) ease-in-out infinite; opacity:0; }
+@keyframes lottStarTwinkle { 0%,100%{opacity:0;transform:scale(0.5)} 50%{opacity:1;transform:scale(1.2)} }
+.lottery-ad-jackpot { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.lottery-ad-jackpot-label { font-size:10px; font-weight:700; color:#7c3aed; letter-spacing:2px; text-transform:uppercase; background:#1a0a3a; border:1px solid #4c1d9544; padding:2px 10px; border-radius:4px; }
+.lottery-ad-jackpot-anim { font-size:10px; color:#a78bfa; }
+.lottery-ad-title { font-size:16px; font-weight:800; margin-bottom:4px; line-height:1.2; }
+.lottery-ad-title .lott-prize { background:linear-gradient(90deg,#e879f9,#a78bfa,#60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation: lottPrizeShimmer 2s linear infinite; background-size:200% 100%; }
+@keyframes lottPrizeShimmer { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+.lottery-ad-sub { font-size:11px; color:#6b7280; margin-bottom:10px; line-height:1.5; }
+.lottery-ad-balls { display:flex; gap:5px; margin-bottom:10px; }
+.lottery-ad-ball { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-family:monospace; border:2px solid; animation: lottBallFloat var(--fd,1.5s) var(--fdelay,0s) ease-in-out infinite alternate; }
+@keyframes lottBallFloat { 0%{transform:translateY(0)} 100%{transform:translateY(-4px)} }
+.lb-purple { background:#1a0a3a; border-color:#7c3aed; color:#c4b5fd; }
+.lb-pink { background:#2a0a2a; border-color:#e879f9; color:#f0abfc; }
+.lb-blue { background:#0a1a3a; border-color:#3b82f6; color:#93c5fd; }
+.lb-gold { background:#1a1205; border-color:#f59e0b; color:#fde68a; animation: lottGoldPulse 1s ease-in-out infinite; }
+@keyframes lottGoldPulse { 0%,100%{opacity:0.75} 50%{opacity:1} }
+.lottery-ad-row { display:flex; align-items:center; gap:10px; }
+.lottery-ad-play-btn { display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#5b21b6,#7c3aed); color:#fff; font-size:13px; font-weight:800; padding:9px 18px; border-radius:8px; border:none; cursor:pointer; transition:all 0.15s; box-shadow:0 4px 20px #7c3aed55; letter-spacing:0.5px; text-transform:uppercase; }
+.lottery-ad-play-btn:hover { background:linear-gradient(135deg,#6d28d9,#8b5cf6); box-shadow:0 6px 28px #7c3aed88; transform:translateY(-1px); }
+.lottery-ad-play-btn:active { transform:translateY(0); }
+.lottery-ad-odds { font-size:11px; color:#4b5563; line-height:1.5; }
+.lottery-ad-corner { position:absolute; right:12px; bottom:10px; font-size:34px; opacity:0.1; pointer-events:none; animation: lottCornerSpin 8s linear infinite; }
+@keyframes lottCornerSpin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+@keyframes lottAdGlow { 0%,100%{opacity:0.8} 50%{opacity:1} }
+.lottery-ad-banner { animation: lottAdGlow 2.5s ease-in-out infinite; }
+.lottery-ad-banner:hover { animation: none; }
+
+/* ── Extra Enhanced UI elements ── */
+/* Glowing green buttons */
+.ex-btn, .loan-repay-btn, .rshop-btn {
+  position: relative; overflow: hidden;
+}
+.ex-btn::after, .loan-repay-btn::after, .rshop-btn::after {
+  content:''; position:absolute; top:0; left:-100%; width:60%; height:100%;
+  background: linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);
+  transition: left 0.5s;
+}
+.ex-btn:hover::after, .loan-repay-btn:hover::after, .rshop-btn:hover::after { left:140%; }
+
+/* Tab-specific active colors */
+#tab-base.active { color: #4ade80 !important; text-shadow: 0 0 12px rgba(74,222,128,0.5); }
+#tab-base.active::after { background: linear-gradient(90deg,#22c55e,#4ade80,#86efac); }
+#tab-shop.active { color: #60a5fa !important; text-shadow: 0 0 12px rgba(96,165,250,0.5); }
+#tab-shop.active::after { background: linear-gradient(90deg,#2563eb,#60a5fa,#93c5fd); }
+#tab-bank.active { color: #fbbf24 !important; text-shadow: 0 0 12px rgba(251,191,36,0.5); }
+#tab-bank.active::after { background: linear-gradient(90deg,#d97706,#fbbf24,#fde68a); }
+#tab-electricity.active { color: #facc15 !important; text-shadow: 0 0 12px rgba(250,204,21,0.5); }
+#tab-electricity.active::after { background: linear-gradient(90deg,#ca8a04,#facc15,#fde047); }
+#tab-lottery.active { color: #e879f9 !important; text-shadow: 0 0 12px rgba(232,121,249,0.5); }
+#tab-lottery.active::after { background: linear-gradient(90deg,#a21caf,#e879f9,#f0abfc); }
+#tab-market.active { color: #fb923c !important; text-shadow: 0 0 12px rgba(251,146,60,0.5); }
+#tab-market.active::after { background: linear-gradient(90deg,#ea580c,#fb923c,#fdba74); }
+#tab-computer.active { color: #34d399 !important; text-shadow: 0 0 12px rgba(52,211,153,0.5); }
+#tab-computer.active::after { background: linear-gradient(90deg,#059669,#34d399,#6ee7b7); }
+#tab-vipshop.active { color: #c4b5fd !important; text-shadow: 0 0 12px rgba(196,181,253,0.5); }
+#tab-vipshop.active::after { background: linear-gradient(90deg,#7c3aed,#c4b5fd,#ddd6fe); }
+#tab-stats.active { color: #38bdf8 !important; text-shadow: 0 0 12px rgba(56,189,248,0.5); }
+#tab-stats.active::after { background: linear-gradient(90deg,#0284c7,#38bdf8,#7dd3fc); }
+
+/* Floating background particles (CSS only) */
+#game::after {
+  content: '';
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(96,165,250,0.15) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 70%, rgba(74,222,128,0.1) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 50%, rgba(196,181,253,0.08) 0%, transparent 100%),
+    radial-gradient(1px 1px at 10% 80%, rgba(251,191,36,0.08) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 20%, rgba(248,113,113,0.08) 0%, transparent 100%);
+  pointer-events: none; z-index: 0;
+}
+
+/* Make all panels sit above the background */
+.titlebar, .main-tabs, .content { position: relative; z-index: 1; }
+
+/* Money bar dynamic value colors */
+#mb-dollar { color: #4ade80; text-shadow: 0 0 12px rgba(74,222,128,0.4); }
+#mb-xu { color: #fbbf24; text-shadow: 0 0 10px rgba(251,191,36,0.3); }
+#mb-gold { color: #f59e0b; text-shadow: 0 0 10px rgba(245,158,11,0.3); }
+#mb-rate { color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.3); }
+#mb-vmult { color: #f59e0b; text-shadow: 0 0 10px rgba(245,158,11,0.3); }
+#mb-total { color: #94a3b8; }
+#hdr-money { animation: neonPulse 3s ease-in-out infinite; will-change: opacity; }
+
+/* Enhanced inline info bar */
+div[style*="Auto-save"] { 
+  background: linear-gradient(145deg,#0d1626,#111f3a) !important;
+  border: 1px solid rgba(59,130,246,0.12) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+/* Animated darkPulse, powerFlicker etc */
+@keyframes darkPulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+@keyframes powerFlicker { 0%{opacity:1} 30%{opacity:0.2} 60%{opacity:0.75} 100%{opacity:0.35} }
+@keyframes blackoutFlash { 0%{background:rgba(0,0,0,0)} 50%{background:rgba(0,0,0,1)} 100%{background:rgba(0,0,0,0)} }
+
+/* VIP shop header enhancement */
+#panel-vipshop > div:first-child {
+  background: linear-gradient(135deg,#0d0520,#1a0a2e,#0a0820) !important;
+  border: 1px solid rgba(124,58,237,0.3) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 30px rgba(124,58,237,0.08), inset 0 1px 0 rgba(196,181,253,0.1) !important;
+  position: relative; overflow: hidden;
+}
+
+/* Animated gradient for darkPulse keyframes */
+@keyframes loanAdGlow { 0%,100%{opacity:0.7} 50%{opacity:1} }
+
+
+/* ══════════════════════════════════════════════════
+   ENHANCED EFFECTS v2
+   ══════════════════════════════════════════════════ */
+
+/* ── SOUND PLAYER BAR ── */
+.sound-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
+  background: linear-gradient(90deg,#060912ee,#0a0f1eee,#060912ee);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(59,130,246,0.2);
+  padding: 6px 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: #4b5563;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  transition: all 0.3s;
+}
+.sound-bar.hidden { transform: translateY(100%); }
+.sound-icon { font-size: 16px; cursor: pointer; flex-shrink:0; }
+.sound-track { flex:1; min-width:0; }
+.sound-name { color: #93c5fd; font-size: 11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sound-wave { display:flex; align-items:flex-end; gap:2px; height:16px; margin-top:3px; }
+.sound-wave span {
+  width: 3px; border-radius: 2px; background: #3b82f6;
+  animation: waveAnim 0.8s ease-in-out infinite alternate;
+}
+.sound-wave span:nth-child(2) { animation-delay:.1s; }
+.sound-wave span:nth-child(3) { animation-delay:.2s; }
+.sound-wave span:nth-child(4) { animation-delay:.3s; }
+.sound-wave span:nth-child(5) { animation-delay:.4s; }
+@keyframes waveAnim { from{height:3px;opacity:.4} to{height:14px;opacity:1} }
+.sound-btn { background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2); color:#60a5fa; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:11px; font-weight:600; transition: transform 0.2s ease, opacity 0.2s ease; white-space:nowrap; }
+.sound-btn:hover { background:rgba(59,130,246,0.2); color:#93c5fd; }
+.sound-upload { display:none; }
+.sound-vol { width: 60px; accent-color: #3b82f6; cursor:pointer; }
+
+/* ── JACKPOT EXPLOSION OVERLAY ── */
+#jackpot-overlay {
+  display:none; position:fixed; inset:0; z-index:9900;
+  pointer-events:none; overflow:hidden;
+}
+.jackpot-bg {
+  position:absolute; inset:0;
+  background:radial-gradient(ellipse at center,rgba(232,121,249,0.15) 0%,transparent 70%);
+  animation: jackBgPulse 0.5s ease-in-out infinite alternate;
+}
+@keyframes jackBgPulse { from{opacity:0.3} to{opacity:1} }
+.jackpot-text {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:clamp(28px,8vw,56px); font-weight:900; letter-spacing:3px;
+  background: linear-gradient(135deg,#fde68a,#e879f9,#60a5fa,#4ade80);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  background-size:200% 100%;
+  animation: jackTextAnim 0.4s ease-in-out infinite alternate, jackTextSlide 2s ease forwards;
+  text-align:center; white-space:nowrap;
+  filter: drop-shadow(0 0 20px rgba(232,121,249,0.8));
+}
+@keyframes jackTextAnim { from{opacity:0.8;transform:scale(1)} to{opacity:1;transform:scale(1.03)} }
+@keyframes jackTextSlide { 0%{transform:translate(-50%,-50%) scale(0.5);opacity:0} 20%{transform:translate(-50%,-50%) scale(1.15);opacity:1} 80%{transform:translate(-50%,-50%) scale(1);opacity:1} 100%{transform:translate(-50%,-50%) scale(1.1);opacity:0} }
+.confetti-container { position:absolute; inset:0; pointer-events:none; }
+.confetti-piece {
+  position:absolute; width:8px; height:8px; border-radius:2px;
+  animation: confettiFall var(--dur,2s) var(--delay,0s) ease-in forwards;
+}
+@keyframes confettiFall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity:1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity:0; }
+}
+
+/* ══ BIG WIN JACKPOT EFFECTS (>$50) ══ */
+/* Screen flash overlay */
+#jackpot-flash {
+  display:none; position:fixed; inset:0; z-index:9800; pointer-events:none;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(232,121,249,0.6) 40%, transparent 70%);
+}
+@keyframes jackFlash { 0%{opacity:0} 8%{opacity:1} 25%{opacity:0} 40%{opacity:0.6} 55%{opacity:0} 70%{opacity:0.4} 85%{opacity:0} 100%{opacity:0} }
+
+/* Shockwave ring */
+#jackpot-shockwave {
+  display:none; position:fixed; top:50%; left:50%; z-index:9801; pointer-events:none;
+  transform:translate(-50%,-50%);
+}
+.shock-ring {
+  position:absolute; border-radius:50%; top:50%; left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  animation: shockExpand var(--sd,1.2s) var(--sdelay,0s) cubic-bezier(0.16,1,0.3,1) forwards;
+  border: var(--sw,3px) solid var(--sc,#e879f9);
+  box-shadow: 0 0 20px var(--sc,#e879f9), inset 0 0 20px var(--sc,#e879f9);
+  width: 100px; height: 100px;
+}
+@keyframes shockExpand { 0%{transform:translate(-50%,-50%) scale(0);opacity:0.9} 100%{transform:translate(-50%,-50%) scale(22);opacity:0} }
+
+/* Laser beams */
+#jackpot-lasers {
+  display:none; position:fixed; inset:0; z-index:9802; pointer-events:none; overflow:hidden;
+}
+.laser-beam {
+  position:absolute; top:50%; left:50%; transform-origin:0 0;
+  height:2px; border-radius:2px;
+  animation:laserShoot var(--ld,0.8s) var(--ldelay,0s) ease-out forwards;
+  background:linear-gradient(90deg,transparent,var(--lc,#e879f9),transparent);
+}
+@keyframes laserShoot { 0%{width:0;opacity:1} 60%{opacity:0.8} 100%{width:55vmax;opacity:0} }
+
+/* Firework rockets */
+#jackpot-fireworks {
+  display:none; position:fixed; inset:0; z-index:9803; pointer-events:none; overflow:hidden;
+}
+.fw-rocket {
+  position:absolute; width:4px; border-radius:2px;
+  animation: rocketRise var(--rd,0.9s) var(--rdelay,0s) cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+  background: var(--rc,#fbbf24);
+  box-shadow: 0 0 6px var(--rc,#fbbf24);
+}
+@keyframes rocketRise {
+  0%{transform:translateY(0) scaleY(1);opacity:1}
+  80%{transform:translateY(calc(var(--rh,-60vh))) scaleY(1.5);opacity:1}
+  100%{transform:translateY(calc(var(--rh,-65vh))) scaleY(0);opacity:0}
+}
+.fw-burst {
+  position:absolute; pointer-events:none;
+  animation: burstAppear 0.1s var(--bdelay,0s) forwards;
+  opacity:0;
+}
+@keyframes burstAppear { to{opacity:1} }
+.fw-spark {
+  position:absolute; top:0; left:0; width:3px; height:3px; border-radius:50%;
+  background:var(--fc,#fbbf24);
+  box-shadow:0 0 4px var(--fc,#fbbf24);
+  transform-origin:0 0;
+  animation:sparkFly var(--sfd,1.4s) var(--sfdelay,0s) cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+}
+@keyframes sparkFly {
+  0%{transform:rotate(var(--sa,0deg)) translateX(0);opacity:1;width:3px;height:3px}
+  70%{opacity:0.8}
+  100%{transform:rotate(var(--sa,0deg)) translateX(var(--sr,80px));opacity:0;width:1px;height:1px}
+}
+
+/* Money rain */
+#jackpot-money-rain {
+  display:none; position:fixed; inset:0; z-index:9804; pointer-events:none; overflow:hidden;
+}
+.money-drop {
+  position:absolute; top:-40px; font-size:var(--mfs,20px);
+  animation: moneyFall var(--mfd,2s) var(--mfdelay,0s) linear forwards;
+  filter:drop-shadow(0 0 6px #4ade80);
+  user-select:none;
+}
+@keyframes moneyFall {
+  0%{transform:translateY(0) rotate(0deg);opacity:1}
+  80%{opacity:0.8}
+  100%{transform:translateY(110vh) rotate(var(--mrot,360deg));opacity:0}
+}
+
+/* Floating profit number */
+.jackpot-profit-float {
+  position:fixed; z-index:9950; pointer-events:none;
+  font-size:clamp(32px,8vw,64px); font-weight:900;
+  background:linear-gradient(135deg,#4ade80,#fbbf24,#4ade80);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  text-align:center; left:50%; transform:translateX(-50%);
+  filter:drop-shadow(0 0 24px #4ade80);
+  animation:profitFloat 2.8s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+  white-space:nowrap;
+}
+@keyframes profitFloat {
+  0%{top:60%;opacity:0;transform:translateX(-50%) scale(0.5)}
+  15%{top:55%;opacity:1;transform:translateX(-50%) scale(1.2)}
+  35%{top:52%;opacity:1;transform:translateX(-50%) scale(1)}
+  80%{top:42%;opacity:1}
+  100%{top:30%;opacity:0;transform:translateX(-50%) scale(1.1)}
+}
+
+/* Big win banner */
+#jackpot-bigwin-banner {
+  display:none; position:fixed; top:18%; left:50%; transform:translateX(-50%);
+  z-index:9940; pointer-events:none; text-align:center; white-space:nowrap;
+}
+.bigwin-title {
+  font-size:clamp(22px,7vw,52px); font-weight:900; letter-spacing:4px;
+  background:linear-gradient(135deg,#fde68a,#f59e0b,#e879f9,#60a5fa,#4ade80,#fde68a);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  background-size:300% 100%;
+  filter:drop-shadow(0 0 16px rgba(232,121,249,0.9)) drop-shadow(0 0 40px rgba(96,165,250,0.6));
+  animation:bigwinSlide 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards, bigwinGrad 1.5s linear infinite, bigwinBounce 0.3s 0.5s ease-in-out infinite alternate;
+  opacity:0;
+}
+@keyframes bigwinSlide {0%{transform:scale(0.3) translateY(40px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes bigwinGrad  {0%{background-position:0% 50%}100%{background-position:300% 50%}}
+@keyframes bigwinBounce{0%{transform:scale(1) translateY(0)}100%{transform:scale(1.04) translateY(-4px)}}
+.bigwin-sub {
+  font-size:clamp(13px,3vw,20px); color:#fde68a; font-weight:700; letter-spacing:2px;
+  animation:bigwinSubFade 0.4s 0.3s ease forwards; opacity:0;
+  text-shadow:0 0 20px rgba(253,230,138,0.8);
+}
+@keyframes bigwinSubFade{to{opacity:1}}
+
+/* Hue rotate screen tint */
+@keyframes hueFlash {
+  0%{filter:hue-rotate(0deg) brightness(1)}
+  20%{filter:hue-rotate(90deg) brightness(1.3)}
+  40%{filter:hue-rotate(180deg) brightness(1.1)}
+  60%{filter:hue-rotate(270deg) brightness(1.2)}
+  80%{filter:hue-rotate(330deg) brightness(1)}
+  100%{filter:hue-rotate(360deg) brightness(1)}
+}
+.jackpot-hue-game { animation: hueFlash 1.2s ease-in-out !important; }
+
+/* ── LOTTERY ENHANCED ── */
+.lottery-glow-border {
+  border-radius:14px; padding:18px; margin-bottom:14px;
+  position:relative; overflow:hidden;
+  animation: lottBorderSpin 3s linear infinite;
+}
+@keyframes lottBorderSpin {
+  0%{box-shadow:0 0 0 2px #7c3aed44,0 0 20px #7c3aed22}
+  50%{box-shadow:0 0 0 2px #e879f988,0 0 40px #e879f944}
+  100%{box-shadow:0 0 0 2px #7c3aed44,0 0 20px #7c3aed22}
+}
+.lball-display-wrap {
+  background: radial-gradient(ellipse at center,#0d0a1a 0%,#060912 100%);
+  border:1px solid rgba(124,58,237,0.25); border-radius:14px;
+  padding:20px; margin-bottom:14px; text-align:center;
+  position:relative; overflow:hidden;
+}
+.lball-display-wrap::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse at 50% 0%,rgba(124,58,237,0.08) 0%,transparent 60%);
+  pointer-events:none;
+}
+.lball-aura {
+  position:absolute; border-radius:50%; pointer-events:none;
+  animation: ballAura 2s ease-in-out infinite;
+}
+@keyframes ballAura { 0%,100%{transform:scale(1);opacity:0.3} 50%{transform:scale(1.5);opacity:0} }
+.lottery-jackpot-banner {
+  background:linear-gradient(135deg,#1a0a2e,#2a0a1a,#1a0a2e);
+  border:1px solid rgba(232,121,249,0.3);
+  border-radius:12px; padding:14px; margin-bottom:14px;
+  text-align:center; position:relative; overflow:hidden;
+  animation: jackBannerPulse 2s ease-in-out infinite;
+}
+@keyframes jackBannerPulse { 0%,100%{opacity:0.8} 50%{opacity:1} }
+.lottery-jackpot-banner::before {
+  content:''; position:absolute; top:0; left:-100%; width:200%; height:1px;
+  background:linear-gradient(90deg,transparent,#e879f988,transparent);
+  animation: shimmerSlide 2s linear infinite; background-size:200% 100%;
+}
+.spin-btn-wrap { position:relative; margin-bottom:14px; }
+.spin-btn-glow {
+  position:absolute; inset:-3px; border-radius:13px;
+  background:conic-gradient(from var(--angle,0deg),transparent 30%,#7c3aed 50%,transparent 70%);
+  animation: spinBtnRotate 3s linear infinite;
+  opacity:0.5; filter:blur(4px); z-index:0;
+}
+@keyframes spinBtnRotate { to{--angle:360deg} }
+
+/* ── SHOP MACHINE EFFECTS ──
+   Extra CSS-only effects applied to shop cards in special states:
+   .shop-item-glow      : pulsing glow for newly available items
+   .tier-unlock-pulse   : gentle scale pulse when a tier is first unlocked
+   .machine-buy-ripple  : circular ripple on the card after purchase */
+.shop-item-glow {
+  animation: shopItemGlow 3s ease-in-out infinite;
+}
+@keyframes shopItemGlow { 0%,100%{opacity:0.85} 50%{opacity:1} }
+.tier-unlock-pulse {
+  animation: tierUnlockPulse 1.5s ease-in-out infinite;
+}
+@keyframes tierUnlockPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+.machine-buy-ripple::after {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(circle,rgba(255,255,255,0.3) 0%,transparent 70%);
+  animation: machineRipple 0.6s ease-out forwards;
+  border-radius:inherit; pointer-events:none;
+}
+@keyframes machineRipple { from{opacity:1;transform:scale(0.5)} to{opacity:0;transform:scale(2)} }
+
+/* ── BANK EFFECTS ──
+   Animation helpers applied dynamically by JS to Bank panel elements:
+   .bank-section-animated : entry slide-up for bank cards
+   .currency-card-glow    : subtle gold glow on wallet currency cards
+   .exchange-flash        : brief green flash when an exchange succeeds
+   .loan-danger-pulse     : red border pulse when a loan is overdue */
+.bank-section-animated {
+  animation: bankSectionEntry 0.4s ease backwards;
+}
+@keyframes bankSectionEntry { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+.currency-card-glow {
+  animation: currencyGlow 4s ease-in-out infinite;
+}
+@keyframes currencyGlow { 0%,100%{opacity:0.85} 50%{opacity:1} }
+.exchange-flash {
+  animation: exchangeFlash 0.4s ease forwards;
+}
+@keyframes exchangeFlash { 0%{background:rgba(74,222,128,0.2)} 100%{background:transparent} }
+.loan-danger-pulse {
+  animation: loanDangerPulse 1s ease-in-out infinite;
+}
+@keyframes loanDangerPulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+
+/* ── MARKET ADS ──
+   Promotional banner cards that appear in the Market panel
+   advertising special offers or new features.
+   .market-ad-banner : outer card with shimmer sweep animation
+   .market-ad-tag    : coloured label badge ("HOT", "NEW", etc.)
+   .market-ad-btn    : call-to-action button */
+.market-ad-banner {
+  border-radius:12px; padding:14px 16px; margin-bottom:14px;
+  position:relative; overflow:hidden; cursor:pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.market-ad-banner::before {
+  content:''; position:absolute; top:0; left:-100%; width:200%; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);
+  animation: shimmerSlide 3s linear infinite;
+}
+.market-ad-banner:hover { transform:translateY(-2px); }
+.market-ad-tag {
+  font-size:10px; font-weight:700; letter-spacing:1.5px; padding:2px 8px;
+  border-radius:4px; display:inline-block; margin-bottom:7px; text-transform:uppercase;
+}
+.market-ad-title { font-size:15px; font-weight:700; margin-bottom:4px; line-height:1.3; }
+.market-ad-sub { font-size:11px; opacity:0.7; margin-bottom:10px; line-height:1.5; }
+.market-ad-btn {
+  padding:7px 16px; border-radius:7px; border:none; cursor:pointer;
+  font-size:12px; font-weight:700; transition: transform 0.2s ease, opacity 0.2s ease; letter-spacing:0.5px;
+}
+.market-ad-btn:hover { transform:translateY(-1px); filter:brightness(1.2); }
+
+/* ── FLOATING PARTICLES ──
+   Small ambient dot particles that drift around the background.
+   Injected dynamically by JS; each has randomised --tx/--ty/--dur CSS vars. */
+.particle {
+  position:fixed; border-radius:50%; pointer-events:none; z-index:998;
+  animation: particleFloat var(--dur,4s) var(--delay,0s) ease-in-out infinite alternate;
+  opacity:0.4;
+}
+@keyframes particleFloat {
+  from{transform:translate(0,0) scale(1)}
+  to{transform:translate(var(--tx,20px),var(--ty,-30px)) scale(var(--sc,0.5))}
+}
+
+/* ── TAB TRANSITION ──
+   Smooth opacity + translateY transition. All panels are kept in flow but
+   invisible/non-interactive when inactive; the active panel fades+slides in. */
+.panel {
+  padding: 18px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.28s cubic-bezier(0.4,0,0.2,1), transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  top: 0; left: 0;
+  display: block;
+  visibility: hidden;
+  min-height: 0;
+}
+.panel.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  position: relative;
+  visibility: visible;
+}
+
+/* ── CONTENT BOTTOM PADDING (for sound bar) ── */
+.content { padding-bottom: 48px; }
+</style>
+
+/* ══════════════════════════════════════════════
+   DISPLAY MODE BUTTONS
+   ══════════════════════════════════════════════ */
+.display-mode-btn {
+  padding: 10px 6px; border-radius: 10px; cursor: pointer; font-size: 11px;
+  font-weight: 600; border: 1px solid rgba(255,255,255,0.08); color: #4b5563;
+  background: rgba(255,255,255,0.03); text-align: center; line-height: 1.6;
+  transition: transform 0.2s ease, opacity 0.2s ease; letter-spacing: 0.2px;
+}
+.display-mode-btn span { font-size: 12px; color: #6b7280; display: block; }
+.display-mode-btn small { font-size: 9px; color: #374151; display: block; margin-top: 1px; }
+.display-mode-btn:hover { border-color: rgba(96,165,250,0.3); color: #93c5fd; background: rgba(59,130,246,0.08); }
+.display-mode-btn--active { border-color: #3b82f6 !important; color: #93c5fd !important; background: rgba(59,130,246,0.15) !important; box-shadow: 0 0 12px rgba(59,130,246,0.25); }
+.display-mode-btn--active span { color: #93c5fd !important; }
+
+/* ══════════════════════════════════════════════
+   MOBILE MODE  — larger touch targets, bigger text
+   ══════════════════════════════════════════════ */
+body.mode-mobile {
+  font-size: 15px;
+}
+body.mode-mobile .main-tab {
+  font-size: 14px; padding: 11px 16px; gap: 8px;
+}
+body.mode-mobile .mb-val { font-size: 20px; }
+body.mode-mobile .mb-label { font-size: 12px; }
+body.mode-mobile .slot { min-height: 170px; padding: 16px 10px; }
+body.mode-mobile .slot-name { font-size: 12px; }
+body.mode-mobile .slot-rate { font-size: 14px; }
+body.mode-mobile .sell-btn { font-size: 12px; padding: 7px 0; }
+body.mode-mobile .buy-btn { font-size: 14px; padding: 11px; }
+body.mode-mobile .bank-title { font-size: 15px; }
+body.mode-mobile .panel { padding: 14px; }
+body.mode-mobile .titlebar { padding: 14px 18px; }
+body.mode-mobile .titlebar-left { font-size: 17px; }
+body.mode-mobile .titlebar-right { font-size: 17px; }
+body.mode-mobile .slots-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+body.mode-mobile .items-grid { grid-template-columns: 1fr; gap: 10px; }
+body.mode-mobile .currency-grid { grid-template-columns: repeat(2, 1fr); }
+/* Mobile: disable heavy GPU effects */
+body.mode-mobile * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.mode-mobile *::before, body.mode-mobile *::after { animation-duration: 0s !important; }
+body.mode-mobile #game::before { display: none !important; }
+body.mode-mobile .titlebar::after { display: none !important; }
+body.mode-mobile .money-bar::before { display: none !important; }
+
+/* ══════════════════════════════════════════════
+   TV MODE  — potato settings, absolute minimum rendering
+   ══════════════════════════════════════════════ */
+body.mode-tv {
+  font-size: 16px;
+}
+/* Kill ALL animations and transitions */
+body.mode-tv *, body.mode-tv *::before, body.mode-tv *::after {
+  animation: none !important;
+  animation-duration: 0s !important;
+  transition: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+  will-change: auto !important;
+}
+/* Flatten all gradients to solid colors */
+body.mode-tv #game {
+  background: #060912 !important;
+}
+body.mode-tv .titlebar {
+  background: #0d1526 !important;
+  box-shadow: none !important;
+}
+body.mode-tv .tabs-wrapper { background: #0a1020 !important; }
+body.mode-tv .main-tab { background: transparent !important; }
+body.mode-tv .main-tab.active { background: rgba(59,130,246,0.15) !important; }
+body.mode-tv .slot, body.mode-tv .shop-item, body.mode-tv .bank-section {
+  background: #0d1626 !important;
+  border-radius: 8px !important;
+}
+body.mode-tv .money-bar {
+  background: #0d1626 !important;
+  border-radius: 8px !important;
+}
+/* Simplify grid layout */
+body.mode-tv .slots-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+body.mode-tv .items-grid { grid-template-columns: 1fr !important; }
+body.mode-tv .currency-grid { grid-template-columns: repeat(2, 1fr) !important; }
+/* Hide all decorative pseudo-elements */
+body.mode-tv #game::before, body.mode-tv #game::after,
+body.mode-tv .titlebar::before, body.mode-tv .titlebar::after,
+body.mode-tv .money-bar::before, body.mode-tv .tabs-wrapper::after,
+body.mode-tv .slot::before, body.mode-tv .bank-section::before,
+body.mode-tv .shop-item::before, body.mode-tv .main-tab::before,
+body.mode-tv .main-tab::after { display: none !important; content: none !important; }
+/* Disable confetti, particles */
+body.mode-tv .particle, body.mode-tv #confetti-container { display: none !important; }
+/* Bigger text for TV viewing distance */
+body.mode-tv .titlebar-left { font-size: 20px !important; -webkit-text-fill-color: #93c5fd !important; background: none !important; }
+body.mode-tv .titlebar-right { font-size: 20px !important; }
+body.mode-tv .mb-val { font-size: 22px !important; }
+body.mode-tv .mb-label { font-size: 12px !important; }
+body.mode-tv .main-tab { font-size: 14px !important; padding: 11px 16px !important; }
+body.mode-tv .slot-rate { font-size: 14px !important; }
+/* Flat panel transition for TV (no GPU composite) */
+body.mode-tv .panel { transition: none !important; opacity: 0; }
+body.mode-tv .panel.active { opacity: 1 !important; }
+
+/* ══════════════════════════════════════════════
+   FPS LOCKER BUTTONS
+   ══════════════════════════════════════════════ */
+.fps-btn {
+  flex: 1; padding: 10px 6px; border-radius: 10px; cursor: pointer;
+  font-size: 13px; font-weight: 700; border: 1px solid rgba(255,255,255,0.08);
+  color: #4b5563; background: rgba(255,255,255,0.03); text-align: center;
+  transition: all 0.18s; letter-spacing: 0.3px; line-height: 1.5;
+}
+.fps-btn small { display: block; font-size: 9px; font-weight: 400; color: #374151; margin-top: 2px; }
+.fps-btn:hover { border-color: rgba(74,222,128,0.3); color: #86efac; background: rgba(74,222,128,0.07); }
+.fps-btn--active {
+  border-color: #22c55e !important; color: #4ade80 !important;
+  background: rgba(74,222,128,0.13) !important;
+  box-shadow: 0 0 14px rgba(74,222,128,0.2);
+}
+.fps-btn--active small { color: #4ade8099 !important; }
