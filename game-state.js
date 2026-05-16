@@ -72,6 +72,10 @@ const defaultState = () => ({
     banCount: 0,     // how many bans accumulated (for escalating ban duration)
     totalPaid: 0,    // total tax paid ever
   },
+  // ═══ SKIN ═══
+  skinCollection: { icons: [], badges: [] },
+  equippedIcon: null,    // profile icon id
+  equippedBadge: null,   // badge id shown next to name
 });
 
 let G = loadGame();
@@ -227,6 +231,12 @@ function parseLoadedData(s) {
       // Bundle flags
       if (p.factoryPlus === undefined) p.factoryPlus = false;
       if (p.factoryPremium === undefined) p.factoryPremium = false;
+      // Skin
+      if (!p.skinCollection) p.skinCollection = { icons: [], badges: [] };
+      if (!p.skinCollection.icons) p.skinCollection.icons = [];
+      if (!p.skinCollection.badges) p.skinCollection.badges = [];
+      if (p.equippedIcon === undefined) p.equippedIcon = null;
+      if (p.equippedBadge === undefined) p.equippedBadge = null;
       return p;
   } catch(e){ console.warn('Parse error:', e); }
   return defaultState();

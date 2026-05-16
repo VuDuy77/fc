@@ -1,3 +1,6 @@
+(function injectUIExtraCSS() {
+  const style = document.createElement('style');
+  style.textContent = `
 /* ═══ LOTTERY LIVE BANNER ═══ */
 .lott-mega-live-banner {
   position: relative; overflow: hidden;
@@ -822,3 +825,17 @@ function renderProfileRankCard() {
       + '</div>'
       : '');
 }
+
+// ═══ SKIN INIT HOOK ══════════════════════════════════════════════
+// Called after game loads to initialize skin-related displays
+(function initSkinDisplay() {
+  function _doInit() {
+    if (typeof updateProfileAvatarDisplay === 'function') updateProfileAvatarDisplay();
+    if (typeof renderProfileDisplay === 'function') renderProfileDisplay();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _doInit);
+  } else {
+    setTimeout(_doInit, 200);
+  }
+})();

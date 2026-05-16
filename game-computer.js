@@ -1713,7 +1713,7 @@ function terminalDisconnect(reason) {
 // Called on tab switch and after major state changes (buy, sell, etc.).
 // Avoids re-rendering hidden panels to save CPU — most render functions
 // check whether their panel has the .active class before doing work.
-function renderAll() { renderSlots(); renderShopTabs(); renderShopContent(); updateUI(); renderTaxBadge(); }
+function renderAll() { renderSlots(); renderShopTabs(); renderShopContent(); updateUI(); renderTaxBadge(); if(typeof updateProfileAvatarDisplay==='function') updateProfileAvatarDisplay(); if(typeof renderProfileDisplay==='function') renderProfileDisplay(); }
 renderAll();
 
 // ═══ TAB SCROLL HELPER ═══════════════════════════════════════════
