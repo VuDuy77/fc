@@ -1094,6 +1094,8 @@ const CONFETTI_COLORS = ['#e879f9','#60a5fa','#4ade80','#fbbf24','#f87171','#a78
 function triggerJackpotExplosion(isMega, profit) {
   profit = profit || 0;
   const isBigWin = profit > 50;
+  // TV mode: skip all visual effects entirely
+  if (document.body.classList.contains('mode-tv')) { playJackpotSound(); return; }
 
   playJackpotSound();
   const overlay = document.getElementById('jackpot-overlay');
@@ -1522,6 +1524,8 @@ function closeBJOverlay() {
 // Auto-closes after 12 seconds.
 // Fired probabilistically: 20% chance every minute after first 30-90 s.
 function triggerBigJackpotAnnouncement() {
+  // TV mode: skip big jackpot overlay entirely
+  if (document.body.classList.contains('mode-tv')) return;
   // Only show when the Lottery tab is active
   const lottPanel = document.getElementById('panel-lottery');
   if (!lottPanel || !lottPanel.classList.contains('active')) {
@@ -1988,12 +1992,14 @@ window.renderShopContent = function() {
 //  SETTINGS SYSTEM
 // ═══════════════════════════════════════════════════════════════════
 const SETTINGS_KEY = 'factory_game_settings_v1';
+// Exposed to window so applyDisplayMode (game-ui.js) can snapshot/restore
 let _gameSettings = {
   'gfx-lighting': true, 'gfx-particles': true, 'gfx-blur': true,
   'gfx-animations': true, 'gfx-shimmer': true, 'gfx-scanline': true,
   'gfx-stars': true, 'gfx-quality': 3,
   'game-notif': true, 'game-autosave': true, 'game-jackpot-fx': true, 'game-livefeed': true
 };
+window._gameSettings = _gameSettings; // shared reference for TV mode restore
 
 function loadSettings() {
   try {
@@ -2005,8 +2011,13 @@ function loadSettings() {
 }
 
 function saveSettings() {
-  const keys = ['gfx-lighting','gfx-particles','gfx-blur','gfx-animations','gfx-shimmer','gfx-scanline','gfx-stars','gfx-quality','game-notif','game-autosave','game-jackpot-fx','game-livefeed'];
-  keys.forEach(k => {
+  // In TV/mobile mode: only save non-gfx settings (notifications, autosave, etc.)
+  // GFX settings are force-overridden by TV mode and must NOT be saved over the user's real preferences.
+  const isTVMode = document.body.classList.contains('mode-tv') || document.body.classList.contains('mode-mobile');
+  const gfxKeys = ['gfx-lighting','gfx-particles','gfx-blur','gfx-animations','gfx-shimmer','gfx-scanline','gfx-stars','gfx-quality'];
+  const allKeys = [...gfxKeys, 'game-notif','game-autosave','game-jackpot-fx','game-livefeed'];
+  allKeys.forEach(k => {
+    if (isTVMode && gfxKeys.includes(k)) return; // skip gfx in TV/mobile mode
     const el = document.getElementById(k);
     if(!el) return;
     if(el.type==='checkbox') _gameSettings[k] = el.checked;
@@ -2161,7 +2172,17 @@ function tryLoadFromLocalStorage() {
 // ═══════════════════════════════════════════════════════════════════
 const UPDATE_LOG = [
   {
-    version: 'v3.3.0', date: '2025-05-14', tag: 'LATEST', tagColor: '#4ade80',
+    version: 'v4.5', date: '2025-05-17', tag: 'LATEST', tagColor: '#4ade80',
+    title: 'Realtime Hexper & Casino UX',
+    changes: [
+      { type: 'new',      text: '⬡ Tab Trò Chơi: Số Hexper & Token cập nhật realtime mỗi giây — không cần reload lại trang' },
+      { type: 'new',      text: '⬡ Giới hạn còn lại trong ngày cũng cập nhật realtime ngay khi thắng/thua' },
+      { type: 'improved', text: '🎮 Casino header tự động dừng ticker khi rời tab, tiết kiệm tài nguyên' },
+      { type: 'improved', text: '📋 Update Log: Thêm phiên bản v4.5 với ghi chú chi tiết' },
+    ]
+  },
+  {
+    version: 'v3.3.0', date: '2025-05-14', tag: 'UPDATE', tagColor: '#60a5fa',
     title: 'Security & Live Experience',
     changes: [
       { type: 'new', text: '🎆 Thông báo lớn Jackpot người khác: overlay toàn màn hình, pháo hoa, mưa tiền, 20%/phút' },

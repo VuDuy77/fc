@@ -180,6 +180,7 @@
       <div class="main-tab" onclick="switchTab('settings')" id="tab-settings">⚙️ Cài Đặt</div>
       <div class="main-tab" onclick="switchTab('updatelog')" id="tab-updatelog">📋 Update Log</div>
       <div class="main-tab" onclick="switchTab('rank')" id="tab-rank">🏆 Rank</div>
+      <div class="main-tab" onclick="switchTab('casino')" id="tab-casino">🎮 Trò Chơi</div>
     </div>
     <button class="tab-scroll-btn" onclick="scrollTabs(120)" title="Cuộn phải">&#8250;</button>
   </div>
@@ -792,6 +793,9 @@
          open a profile modal.  Refreshes every 3 seconds automatically. -->
     <div class="panel" id="panel-rank" style="padding:16px"></div>
 
+    <!-- CASINO PANEL -->
+    <div class="panel" id="panel-casino" style="padding:0"></div>
+
     <!-- MATERIALS SHOP PANEL
          Spend dollars on permanent income-multiplier upgrades.
          Items in MAT_SHOP_ITEMS[] buff G.valueMultiplier.
@@ -956,4 +960,5 @@
 <script src="game-electricity.js"></script>
 <script src="game-skin.js"></script>
 <script src="game-ui.js"></script>
+<script src="game-casino.js"></script>
 </body></html>

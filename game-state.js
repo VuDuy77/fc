@@ -8,7 +8,12 @@ const defaultState = () => ({
   slots: [{ machine:'begin0', earned:0 }, null, null, null, null],
   ownedSlots: 5,
   unlockedTiers: [],
-  wallet: { xu:0, gold:0, diamond:0, dark:0, ruby:0, rainbow:0, token:0 },
+  wallet: { xu:0, gold:0, diamond:0, dark:0, ruby:0, rainbow:0, token:0, hexper:0 },
+  // ═══ CASINO ═══
+  casinoStats: { gamesPlayed:0, totalWon:0, totalLost:0, biggestWin:0, hexperEarned:0 },
+  casinoLastSpinTime: 0,  // throttle wheel spin: 1 spin per 30s
+  casinoDailyBets: 0,     // total hexper bet today (reset daily), anti-exploit
+  casinoDailyDate: '',    // 'YYYY-MM-DD' of last daily reset
   inventory: [],
   invMaxSlots: 50,
   recyclePoints: 0,
@@ -176,6 +181,11 @@ function parseLoadedData(s) {
       if (!p.boughtBundles) p.boughtBundles = [];
       if (!p.boughtTokenBundles) p.boughtTokenBundles = [];
       if (!p.wallet.token) p.wallet.token = 0;
+      if (!p.wallet.hexper) p.wallet.hexper = 0;
+      if (!p.casinoStats) p.casinoStats = { gamesPlayed:0, totalWon:0, totalLost:0, biggestWin:0, hexperEarned:0 };
+      if (p.casinoLastSpinTime === undefined) p.casinoLastSpinTime = 0;
+      if (p.casinoDailyBets === undefined) p.casinoDailyBets = 0;
+      if (!p.casinoDailyDate) p.casinoDailyDate = '';
       if (!p.taxEvadeTickets) p.taxEvadeTickets = 0;
       if (!p.debtEvadeTickets) p.debtEvadeTickets = 0;
       if (!p.permanentSpeedInternet) p.permanentSpeedInternet = false;

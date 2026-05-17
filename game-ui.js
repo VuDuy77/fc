@@ -707,39 +707,104 @@ const DISPLAY_MODE_INFO = {
   tv:     { label: '📺 TV Mode — Potato setting, cực nhẹ cho TV yếu', cls: 'mode-tv' }
 };
 
+// Snapshot of user's gfx settings before TV mode override — restored on exit
+let _preTV_settings = null;
+
 function applyDisplayMode(mode) {
-  // Remove existing mode classes
+  const prevMode = document.body.classList.contains('mode-tv') ? 'tv'
+                 : document.body.classList.contains('mode-mobile') ? 'mobile' : 'normal';
+
+  // ── Remove existing mode classes ───────────────────────────────
   document.body.classList.remove('mode-mobile', 'mode-tv');
-  // Apply new class
+
+  // ── Apply new class ────────────────────────────────────────────
   const info = DISPLAY_MODE_INFO[mode] || DISPLAY_MODE_INFO.normal;
   if (info.cls) document.body.classList.add(info.cls);
-  // Update button states
+
+  // ── Update button states ───────────────────────────────────────
   ['normal','mobile','tv'].forEach(m => {
     const btn = document.getElementById('mode-btn-' + m);
-    if (btn) {
-      btn.classList.toggle('display-mode-btn--active', m === mode);
-    }
+    if (btn) btn.classList.toggle('display-mode-btn--active', m === mode);
   });
-  // Update label
   const lbl = document.getElementById('display-mode-label');
   if (lbl) lbl.textContent = { normal: 'Bình Thường', mobile: 'Mobile', tv: 'TV Mode' }[mode] || 'Bình Thường';
-  // Save to localStorage
+
+  // ── Save display mode to localStorage ─────────────────────────
   try { localStorage.setItem(DISPLAY_MODE_KEY, mode); } catch(e) {}
-  // TV mode: also apply lowest graphics preset
+
+  // ── TV MODE: kill all JS-driven effects + save user settings ──
   if (mode === 'tv') {
-    applyQualityPreset(1);
+    // Snapshot current user gfx settings before overriding (only if coming from non-tv)
+    if (prevMode !== 'tv' && typeof _gameSettings !== 'undefined') {
+      _preTV_settings = JSON.parse(JSON.stringify(_gameSettings));
+      try { localStorage.setItem('factory_pre_tv_settings', JSON.stringify(_preTV_settings)); } catch(e) {}
+    }
+    // Force lowest preset — kills all checkbox effects
+    if (typeof applyQualityPreset === 'function') applyQualityPreset(1);
     const qEl = document.getElementById('gfx-quality');
     if (qEl) qEl.value = 1;
+    // Remove ambient particles from DOM entirely (display:none still runs CSS animations)
+    if (typeof removeAmbientParticles === 'function') removeAmbientParticles();
+    // Hide FPS canvas overlay
+    const fpsCanvas = document.getElementById('_fps_canvas');
+    if (fpsCanvas) fpsCanvas.style.display = 'none';
+    // Collapse any active jackpot/big-jackpot overlays
+    const bjOverlay = document.getElementById('bj-overlay');
+    if (bjOverlay) bjOverlay.classList.remove('active');
+    const jackpotOverlay = document.getElementById('jackpot-overlay');
+    if (jackpotOverlay) jackpotOverlay.style.display = 'none';
+    // Clear confetti DOM
+    const confettiEl = document.getElementById('confetti-container');
+    if (confettiEl) confettiEl.innerHTML = '';
+    // Tell FPS system to stay at 30 FPS in TV mode
+    if (typeof setFpsTarget === 'function') setFpsTarget(30);
+
+  // ── MOBILE MODE ────────────────────────────────────────────────
   } else if (mode === 'mobile') {
-    applyQualityPreset(1);
+    if (prevMode !== 'mobile' && typeof _gameSettings !== 'undefined') {
+      _preTV_settings = JSON.parse(JSON.stringify(_gameSettings));
+      try { localStorage.setItem('factory_pre_tv_settings', JSON.stringify(_preTV_settings)); } catch(e) {}
+    }
+    if (typeof applyQualityPreset === 'function') applyQualityPreset(1);
     const qEl = document.getElementById('gfx-quality');
     if (qEl) qEl.value = 1;
+    if (typeof removeAmbientParticles === 'function') removeAmbientParticles();
+
+  // ── NORMAL MODE: restore user's saved settings ─────────────────
+  } else {
+    // Try to restore pre-TV/mobile snapshot
+    let restored = _preTV_settings;
+    if (!restored) {
+      try {
+        const raw = localStorage.getItem('factory_pre_tv_settings');
+        if (raw) restored = JSON.parse(raw);
+      } catch(e) {}
+    }
+    if (restored && typeof _gameSettings !== 'undefined') {
+      Object.assign(_gameSettings, restored);
+      if (typeof applySettingsToUI === 'function') applySettingsToUI();
+      if (typeof applyGraphicsSetting === 'function') applyGraphicsSetting();
+    }
+    _preTV_settings = null;
+    try { localStorage.removeItem('factory_pre_tv_settings'); } catch(e) {}
+    // Respawn ambient particles
+    if (typeof spawnAmbientParticles === 'function') spawnAmbientParticles();
+    // Restore FPS canvas visibility based on current FPS target
+    const fpsCanvas = document.getElementById('_fps_canvas');
+    if (fpsCanvas && typeof _fpsTarget !== 'undefined') {
+      fpsCanvas.style.display = _fpsTarget >= 60 ? 'block' : 'none';
+    }
   }
 }
 
 function loadDisplayMode() {
   let mode = 'normal';
   try { mode = localStorage.getItem(DISPLAY_MODE_KEY) || 'normal'; } catch(e) {}
+  // Pre-load snapshot so restoring works even after page reload
+  try {
+    const raw = localStorage.getItem('factory_pre_tv_settings');
+    if (raw) _preTV_settings = JSON.parse(raw);
+  } catch(e) {}
   applyDisplayMode(mode);
 }
 

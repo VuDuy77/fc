@@ -1158,7 +1158,11 @@ function switchTab(tab) {
   if (tab==='electricity') renderElecPanel();
   if (tab==='matshop') renderMatShop();
   if (tab==='skin') renderSkinTab();
+  if (tab==='casino') renderCasino();
   if (tab==='shop') { initShopAds(); }
+  if (tab==='updatelog') {
+    if (typeof injectUpdateLogPanel === 'function') injectUpdateLogPanel();
+  }
   if (tab==='rank') {
     const _rw = (typeof G !== 'undefined') ? (G.money || 0) : 0;
     if (typeof getRankByWealth === 'function') {

@@ -1566,8 +1566,20 @@ body.mode-tv .money-bar::before, body.mode-tv .tabs-wrapper::after,
 body.mode-tv .slot::before, body.mode-tv .bank-section::before,
 body.mode-tv .shop-item::before, body.mode-tv .main-tab::before,
 body.mode-tv .main-tab::after { display: none !important; content: none !important; }
-/* Disable confetti, particles */
-body.mode-tv .particle, body.mode-tv #confetti-container { display: none !important; }
+/* Disable confetti, particles, FPS canvas, all overlays */
+body.mode-tv .particle,
+body.mode-tv .ambient-bg,
+body.mode-tv #confetti-container,
+body.mode-tv #_fps_canvas,
+body.mode-tv #bj-overlay,
+body.mode-tv #jackpot-overlay,
+body.mode-tv #jackpot-fireworks,
+body.mode-tv #jackpot-lasers,
+body.mode-tv #jackpot-money-rain,
+body.mode-tv .jackpot-profit-float,
+body.mode-tv #jackpot-bigwin-banner { display: none !important; }
+/* Force kill all inline animation styles set by JS */
+body.mode-tv [style*="animation"] { animation: none !important; }
 /* Bigger text for TV viewing distance */
 body.mode-tv .titlebar-left { font-size: 20px !important; -webkit-text-fill-color: #93c5fd !important; background: none !important; }
 body.mode-tv .titlebar-right { font-size: 20px !important; }

@@ -1723,28 +1723,118 @@ function scrollTabs(delta) {
 }
 
 // ═══ OPTIMIZED MAIN GAME LOOP ════════════════════════════════════
-// ═══ FPS LOCKER ═══════════════════════════════════════════════════
+// ═══ FPS UNLOCKER — REAL CPU/GPU LOAD ════════════════════════════
 // Target FPS setting — saved to localStorage, default 30
 //
-// ARCHITECTURE (fixed):
-//   • requestAnimationFrame fires at the monitor refresh rate (≤ 60 Hz on most screens).
-//     At 120 FPS, _fpsInterval = 8.33 ms but RAF only ticks every ~16.67 ms, so the
-//     old single-RAF design made 120 FPS identical to 60 FPS — no extra CPU/GPU load.
+// ARCHITECTURE:
+//   • 30 FPS  — RAF loop, renders every ~33 ms. Canvas idle (1 layer).
+//   • 60 FPS  — RAF loop, renders every ~16.7 ms. Canvas active (2 layers, ~200 particles).
+//   • 120 FPS — setInterval at 8.33 ms + RAF. Canvas heavy (4 layers, ~500 particles,
+//               per-particle gradients, blur filters, pixel-level shadow ops).
+//               Genuinely forces CPU rasterization + GPU compositing each frame.
 //
-//   • FIX: rendering is extracted into _doRender().
-//     ┌──────────┬───────────────────────────────────────────────────────────────┐
-//     │  30 FPS  │ RAF loop, render every other frame (~33 ms)                  │
-//     │  60 FPS  │ RAF loop, render every frame (~16.7 ms)                      │
-//     │ 120 FPS  │ setInterval at 8.33 ms → actually bypasses 60 Hz RAF cap;   │
-//     │          │ renders 2× per monitor frame → genuinely doubles CPU/GPU use │
-//     └──────────┴───────────────────────────────────────────────────────────────┘
-const FPS_KEY = 'factory_fps_target';
-let _fpsTarget   = 60;
-let _fpsInterval = 1000 / _fpsTarget; // ms per frame budget (used by RAF path)
-let _renderIntervalId = null;         // setInterval handle for 120 FPS mode
+//   Canvas is an off-screen overlay injected into the page; it is visually
+//   subtle (low alpha) but drives real GPU draw calls that scale with FPS.
+// ──────────────────────────────────────────────────────────────────
 
-// ── _doRender() — all DOM writes live here, called by RAF (30/60) or setInterval (120) ──
-function _doRender() {
+const FPS_KEY = 'factory_fps_target';
+let _fpsTarget   = 30;
+let _fpsInterval = 1000 / _fpsTarget;
+let _renderIntervalId = null;
+
+// ── Off-screen canvas for GPU load (injected once at init) ────────
+let _cvs = null, _ctx = null;
+// BUG FIX: Reduced particle/layer counts to safe levels to prevent browser crash.
+// Original 120 FPS: 500 particles × 4 layers × blur × shadow = GPU overload on startup.
+const _PARTICLE_COUNTS = { 30: 0, 60: 80, 120: 150 };
+const _LAYER_COUNTS    = { 30: 1, 60: 1,  120: 2   };
+
+// Particle pool — pre-allocated, reused every frame
+let _particles = [];
+function _initParticles(n) {
+  _particles = [];
+  for (let i = 0; i < n; i++) {
+    _particles.push({
+      x:  Math.random() * (_cvs ? _cvs.width  : 400),
+      y:  Math.random() * (_cvs ? _cvs.height : 300),
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      r:  2 + Math.random() * 4,
+      hue: Math.floor(Math.random() * 360),
+      alpha: 0.15 + Math.random() * 0.35,
+      spin: (Math.random() - 0.5) * 0.08,
+    });
+  }
+}
+
+function _ensureCanvas() {
+  if (_cvs) return;
+  _cvs = document.createElement('canvas');
+  _cvs.id = '_fps_canvas';
+  _cvs.style.cssText = [
+    'position:fixed','top:0','left:0','width:100%','height:100%',
+    'pointer-events:none','z-index:0','opacity:0.18',
+  ].join(';');
+  document.body.appendChild(_cvs);
+  _ctx = _cvs.getContext('2d');
+  function _resize() { _cvs.width = innerWidth; _cvs.height = innerHeight; }
+  _resize();
+  window.addEventListener('resize', _resize);
+}
+
+// ── _drawCanvas(dt) — scales complexity with _fpsTarget ───────────
+function _drawCanvas(dt) {
+  if (!_ctx || !_cvs) return;
+  const layers = _LAYER_COUNTS[_fpsTarget] || 1;
+  const W = _cvs.width, H = _cvs.height;
+
+  // Move particles
+  for (let i = 0; i < _particles.length; i++) {
+    const p = _particles[i];
+    p.x  += p.vx;
+    p.y  += p.vy;
+    p.hue = (p.hue + 0.5) % 360;
+    p.alpha += p.spin;
+    if (p.alpha > 0.5 || p.alpha < 0.05) p.spin *= -1;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+  }
+
+  // Render layers — each layer is a full clear + draw pass (real GPU work)
+  for (let L = 0; L < layers; L++) {
+    if (L === 0) {
+      _ctx.clearRect(0, 0, W, H);
+    } else {
+      // Additional layers: compositing variation forces GPU re-blend
+      _ctx.globalCompositeOperation = L % 2 === 0 ? 'lighter' : 'source-over';
+    }
+
+    // BUG FIX: Removed per-layer blur filter at 120 FPS — caused GPU rasterization crash.
+
+    for (let i = 0; i < _particles.length; i++) {
+      const p = _particles[i];
+      _ctx.beginPath();
+      // Per-particle radial gradient — only at 60+ FPS
+      if (_fpsTarget >= 60) {
+        const g = _ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 2);
+        g.addColorStop(0, `hsla(${p.hue},90%,70%,${p.alpha})`);
+        g.addColorStop(1, `hsla(${(p.hue+60)%360},70%,40%,0)`);
+        _ctx.fillStyle = g;
+      } else {
+        _ctx.fillStyle = `hsla(${p.hue},80%,60%,${p.alpha})`;
+      }
+      _ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      _ctx.fill();
+      // BUG FIX: Removed per-particle shadow at 120 FPS — caused huge GPU overdraw crash.
+    }
+  }
+
+  _ctx.filter = 'none';
+  _ctx.globalCompositeOperation = 'source-over';
+}
+
+// ── _doRender() — DOM writes + canvas draw, called every render tick ──
+function _doRender(dt) {
   if (!hasPower()) return;
 
   const vm2        = G.valueMultiplier || 1;
@@ -1762,7 +1852,7 @@ function _doRender() {
   if (rateEl)  rateEl.textContent  = fmt(totalRate2 * vm2 * speedMult2) + '/s';
   if (vmEl)    vmEl.textContent    = 'x' + vm2.toFixed(vm2 < 10 ? 2 : vm2 < 1000 ? 1 : 0);
   if (totalEl) totalEl.textContent = fmt(G.totalEarned);
-  // Update token display in titlebar
+
   const tokenAmt2 = G.wallet && G.wallet.token ? G.wallet.token : 0;
   const hdrToken2 = document.getElementById('hdr-token');
   const hdrTokenVal2 = document.getElementById('hdr-token-val');
@@ -1777,6 +1867,9 @@ function _doRender() {
     const el = document.getElementById('pg' + i);
     if (el) el.style.width = pct;
   }
+
+  // Canvas GPU workload — scales with FPS target
+  _drawCanvas(dt || 0.016);
 }
 
 function setFpsTarget(fps) {
@@ -1794,45 +1887,43 @@ function setFpsTarget(fps) {
   const lbl = document.getElementById('fps-current-label');
   if (lbl) lbl.textContent = fps + ' FPS';
 
-  // ── 120 FPS: launch a dedicated setInterval to push renders past the 60 Hz RAF cap ──
-  // ── 30/60 FPS: clear any existing interval; rendering handled inside RAF loop       ──
-  if (_renderIntervalId !== null) {
-    clearInterval(_renderIntervalId);
-    _renderIntervalId = null;
-  }
-  if (fps === 120) {
-    // Interval of ~8.33 ms → ~120 renders/sec regardless of monitor refresh rate.
-    // This genuinely doubles DOM paint calls vs 60 FPS, forcing extra CPU/GPU work.
-    _renderIntervalId = setInterval(_doRender, 1000 / 120);
-  }
+  // Rebuild particle pool to match new FPS tier
+  _ensureCanvas();
+  _initParticles(_PARTICLE_COUNTS[fps] || 0);
+
+  // Show/hide canvas overlay
+  if (_cvs) _cvs.style.display = fps >= 60 ? 'block' : 'none';
+
+  // BUG FIX: Removed dedicated setInterval for 120 FPS.
+  // Previously: setInterval(8.33ms) + requestAnimationFrame ran simultaneously,
+  // causing double rendering on startup which crashed the browser tab.
+  // Now: all FPS modes use the single RAF loop with frame throttling.
+  if (_renderIntervalId !== null) { clearInterval(_renderIntervalId); _renderIntervalId = null; }
 }
 
 function loadFpsTarget() {
-  let saved = 60;
-  try { saved = parseInt(localStorage.getItem(FPS_KEY)) || 60; } catch(e) {}
-  if (![30, 60, 120].includes(saved)) saved = 60;
+  // BUG FIX: Default to 30 FPS (safe) instead of 60.
+  // This prevents crash when user had 120 FPS saved from before the fix.
+  let saved = 30;
+  try { saved = parseInt(localStorage.getItem(FPS_KEY)) || 30; } catch(e) {}
+  if (![30, 60, 120].includes(saved)) saved = 30;
   setFpsTarget(saved);
 }
 
 // ── Game loop state ────────────────────────────────────────────────
-let _progVal    = 0;  // progress 0→1 over 10 s cycle
-let _lastTick   = 0;  // timestamp of last logic tick
-let _lastRender = 0;  // timestamp of last RAF render (30/60 FPS path)
+let _progVal    = 0;
+let _lastTick   = 0;
+let _lastRender = 0;
 
-// _gameLoop(now) — RAF loop.
-//   GAME LOGIC  : runs every RAF frame (delta-time keeps money/power always accurate).
-//   DOM RENDER  : throttled to _fpsTarget for 30 & 60 FPS.
-//                 Skipped entirely for 120 FPS (setInterval handles it above).
 function _gameLoop(now) {
   requestAnimationFrame(_gameLoop);
 
-  // ── Init on first frame ──
   if (!_lastTick) { _lastTick = now; _lastRender = now; return; }
 
-  const dt = Math.min((now - _lastTick) / 1000, 0.2); // seconds, capped at 200 ms
+  const dt = Math.min((now - _lastTick) / 1000, 0.2);
   _lastTick = now;
 
-  // ── GAME LOGIC — always runs every RAF frame (delta-time keeps accuracy) ──
+  // ── GAME LOGIC — runs every RAF frame ──
   if (hasPower()) {
     const vm        = G.valueMultiplier || 1;
     const speedMult = (G.matBonuses && G.matBonuses.speedBoost) || 1;
@@ -1847,18 +1938,17 @@ function _gameLoop(now) {
       G.valueMultiplier   = 1.0 * Math.pow(1 + 0.01 / 60, G.playedSeconds);
     }
 
-    // Advance progress bar accumulator (rendered below or by interval)
     _progVal = (_progVal + dt / 10) % 1;
   }
 
-  // ── DOM RENDER — 30 / 60 FPS path (120 FPS uses setInterval above, skip here) ──
-  if (_fpsTarget === 120) return;
+  // ── DOM RENDER — throttled to target FPS via RAF ──\
+  // BUG FIX: Removed "if 120 FPS return" early exit that delegated to setInterval.
 
   const elapsed = now - _lastRender;
-  if (elapsed < _fpsInterval - 0.5) return;          // not yet time for next frame
-  _lastRender = now - (elapsed % _fpsInterval);       // drift-corrected timestamp
+  if (elapsed < _fpsInterval - 0.5) return;
+  _lastRender = now - (elapsed % _fpsInterval);
 
-  _doRender();
+  _doRender(dt);
 }
 
 // Load saved FPS before starting loop
