@@ -279,6 +279,44 @@ function openSkinCase(caseId) {
   const sc = SKIN_CASES.find(c => c.id === caseId);
   if (!sc) return;
 
+  // Show confirm popup for token cases
+  if (sc.currency === 'token') {
+    const tok = G.wallet.token || 0;
+    if (tok < sc.price) { showError('🔮 Không đủ token! Cần ' + sc.price + ' token'); return; }
+    // Build confirm overlay
+    const existing = document.getElementById('skin-case-confirm');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'skin-case-confirm';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:1300;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
+    const t = sc.theme;
+    overlay.innerHTML = `
+      <div style="background:linear-gradient(135deg,${t.bg},#0d1117);border:2px solid ${t.accent}55;border-radius:16px;padding:26px 22px;width:100%;max-width:320px;text-align:center;box-shadow:0 0 40px ${t.glow}">
+        <div style="font-size:40px;margin-bottom:10px">🎁</div>
+        <div style="font-size:16px;font-weight:800;color:${t.accent};margin-bottom:6px">${sc.name}</div>
+        <div style="font-size:13px;color:#9ca3af;margin-bottom:16px">Xác nhận mở hòm này?</div>
+        <div style="background:#0d1117;border:1px solid ${t.accent}33;border-radius:10px;padding:10px;margin-bottom:18px">
+          <div style="font-size:13px;color:#6b7280">Chi phí</div>
+          <div style="font-size:20px;font-weight:800;color:#00f5ff">🔮 ${sc.price} Token</div>
+          <div style="font-size:12px;color:#4b5563;margin-top:4px">Còn lại: 🔮 ${tok - sc.price} Token</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button onclick="document.getElementById('skin-case-confirm').remove()" style="flex:1;padding:11px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600">Hủy</button>
+          <button onclick="document.getElementById('skin-case-confirm').remove();_doOpenSkinCase('${caseId}')" style="flex:1;padding:11px;background:linear-gradient(135deg,${t.bg},${t.border}44);color:${t.accent};border:1.5px solid ${t.accent}66;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">✅ Xác Nhận</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    return;
+  }
+
+  // Money cases: open directly (no confirm needed)
+  _doOpenSkinCase(caseId);
+}
+
+function _doOpenSkinCase(caseId) {
+  const sc = SKIN_CASES.find(c => c.id === caseId);
+  if (!sc) return;
+
   // Currency check
   if (sc.currency === 'money') {
     if (G.money < sc.price) { showError('💸 Không đủ tiền! Cần ' + fmt(sc.price)); return; }
@@ -291,6 +329,52 @@ function openSkinCase(caseId) {
 
   const drop = skinWeightedRandom(sc.items);
   const rc = RARITY_CONFIG[drop.rarity];
+
+  // Play case open sound
+  (function playCaseOpenSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Click / thud
+      const buf1 = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+      const d1 = buf1.getChannelData(0);
+      for (let i = 0; i < d1.length; i++) {
+        d1[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.04));
+      }
+      const src1 = ctx.createBufferSource();
+      src1.buffer = buf1;
+      const g1 = ctx.createGain(); g1.gain.value = 0.4;
+      src1.connect(g1); g1.connect(ctx.destination);
+      src1.start(0);
+      // Rising shimmer tone
+      const osc = ctx.createOscillator();
+      const gOsc = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(300, ctx.currentTime + 0.05);
+      osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 0.4);
+      gOsc.gain.setValueAtTime(0, ctx.currentTime + 0.05);
+      gOsc.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.15);
+      gOsc.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+      osc.connect(gOsc); gOsc.connect(ctx.destination);
+      osc.start(ctx.currentTime + 0.05);
+      osc.stop(ctx.currentTime + 0.5);
+      // Rarity-based extra chime (epic+ gets higher pitch)
+      const rarityPitch = { common:0, uncommon:0, rare:1, epic:2, legendary:3, mythic:4 };
+      const bonus = rarityPitch[drop.rarity] || 0;
+      if (bonus > 0) {
+        const osc2 = ctx.createOscillator();
+        const g2 = ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(600 + bonus * 200, ctx.currentTime + 0.35);
+        osc2.frequency.linearRampToValueAtTime(1200 + bonus * 300, ctx.currentTime + 0.7);
+        g2.gain.setValueAtTime(0, ctx.currentTime + 0.35);
+        g2.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.45);
+        g2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+        osc2.connect(g2); g2.connect(ctx.destination);
+        osc2.start(ctx.currentTime + 0.35);
+        osc2.stop(ctx.currentTime + 0.8);
+      }
+    } catch(e) {}
+  })();
 
   // Save to collection
   if (!G.skinCollection) G.skinCollection = { icons: [], badges: [] };

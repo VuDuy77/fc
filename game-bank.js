@@ -1182,6 +1182,20 @@ function showNotif(msg) {
   n.classList.remove('error');
   n.textContent=msg; n.classList.add('show');
   clearTimeout(n._t); n._t=setTimeout(()=>n.classList.remove('show'),2500);
+  // Success sound
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc1.type = 'sine'; osc1.frequency.value = 520;
+    osc2.type = 'sine'; osc2.frequency.value = 780;
+    g.gain.setValueAtTime(0.18, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.35);
+    osc1.connect(g); osc2.connect(g); g.connect(ctx.destination);
+    osc1.start(ctx.currentTime); osc1.stop(ctx.currentTime + 0.18);
+    osc2.start(ctx.currentTime + 0.1); osc2.stop(ctx.currentTime + 0.35);
+  } catch(e) {}
 }
 function showError(msg) {
   const n=document.getElementById('notif');

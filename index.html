@@ -324,7 +324,7 @@
       </div>
       <div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:14px">
         <button onclick="saveGame(true)" style="padding:8px 18px;background:#1e3a5f;color:#60a5fa;border:1px solid #2d5a8f;border-radius:6px;cursor:pointer;font-size:14px;margin-right:8px">💾 Save</button>
-        <button onclick="resetGame()" style="padding:8px 18px;background:#3b1a1a;color:#f87171;border:1px solid #5a2a2a;border-radius:6px;cursor:pointer;font-size:14px">🗑 Reset</button>
+        <button onclick="resetGameWithPassword()" style="padding:8px 18px;background:#3b1a1a;color:#f87171;border:1px solid #5a2a2a;border-radius:6px;cursor:pointer;font-size:14px">🗑 Reset</button>
         <button onclick="showTutorial()" style="padding:8px 18px;background:#1e2f4a;color:#93c5fd;border:1px solid #2d5a8f;border-radius:6px;cursor:pointer;font-size:14px;margin-left:8px">📖 Hướng Dẫn</button>
       </div>
     </div>
@@ -746,13 +746,26 @@
 
       <!-- SAVE & RESET -->
       <div class="settings-section">
-        <div class="settings-section-title"><span>💾</span> LƯU & KHÔI PHỤC</div>
+        <div class="settings-section-title"><span>💾</span> LƯU &amp; KHÔI PHỤC</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
           <button onclick="saveGame(true)" class="settings-action-btn settings-action-btn--blue">💾 Lưu Ngay</button>
-          <button onclick="resetGame()" class="settings-action-btn settings-action-btn--red">🗑 Xóa & Reset</button>
+          <button onclick="resetGameWithPassword()" class="settings-action-btn settings-action-btn--red">🗑 Xóa &amp; Reset</button>
         </div>
         <div class="settings-save-info" id="settings-save-info">
           <span id="settings-last-save">Chưa lưu</span>
+        </div>
+      </div>
+
+      <!-- RESET PASSWORD -->
+      <div class="settings-section">
+        <div class="settings-section-title"><span>🔐</span> MẬT MÃ XÓA &amp; RESET</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Đặt mật mã để bảo vệ nút Xóa &amp; Reset. Lần đầu nhấn Reset sẽ yêu cầu đặt mật mã, lần sau sẽ yêu cầu nhập lại.</div>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-name">🔑 Trạng thái mật mã</div>
+            <div class="settings-row-desc" id="reset-pw-status">Chưa đặt mật mã</div>
+          </div>
+          <button onclick="showChangeResetPassword()" style="padding:6px 14px;background:#1a1a2e;color:#a78bfa;border:1px solid #4c1d95;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">✏️ Đổi mật mã</button>
         </div>
       </div>
 

@@ -1825,6 +1825,7 @@ window.switchTab = function(tab) {
   if(tab === 'settings') {
     if (typeof applySettingsToUI === 'function') applySettingsToUI();
     updateSettingsSaveInfo();
+    if (typeof updateResetPwStatus === 'function') updateResetPwStatus();
     const tmEl = document.getElementById('settings-total-machines');
     if(tmEl && window.G) tmEl.textContent = (G.slots ? G.slots.filter(Boolean).length : 0) + ' máy';
   }

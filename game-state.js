@@ -250,3 +250,183 @@ function resetGame() {
   showNotif('🗑 Đã reset!');
 }
 
+// ═══════════════════════════════════════════════════════
+//  RESET PASSWORD SYSTEM
+// ═══════════════════════════════════════════════════════
+const RESET_PW_KEY = 'factory_reset_pw';
+
+function _getResetPassword() {
+  try { return localStorage.getItem(RESET_PW_KEY) || null; } catch(e) { return null; }
+}
+function _saveResetPassword(pw) {
+  try { localStorage.setItem(RESET_PW_KEY, pw); } catch(e) {}
+}
+
+function updateResetPwStatus() {
+  const el = document.getElementById('reset-pw-status');
+  if (!el) return;
+  const pw = _getResetPassword();
+  el.textContent = pw ? '✅ Đã đặt mật mã (' + pw.length + ' ký tự)' : '⚠️ Chưa đặt mật mã';
+  el.style.color = pw ? '#4ade80' : '#f59e0b';
+}
+
+function resetGameWithPassword() {
+  const pw = _getResetPassword();
+  if (!pw) {
+    // Lần đầu — yêu cầu đặt mật mã, KHÔNG reset
+    showSetResetPasswordPopup();
+  } else {
+    // Đã có mật mã — yêu cầu nhập để xác nhận
+    showEnterResetPasswordPopup();
+  }
+}
+
+function showSetResetPasswordPopup() {
+  const existing = document.getElementById('reset-pw-popup');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'reset-pw-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
+  overlay.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0d1117,#1a0a2e);border:2px solid #4c1d9566;border-radius:16px;padding:26px 22px;width:100%;max-width:340px;box-shadow:0 0 40px rgba(124,58,237,0.3)">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:36px;margin-bottom:8px">🔐</div>
+        <div style="font-size:16px;font-weight:800;color:#a78bfa;margin-bottom:6px">Đặt Mật Mã Reset</div>
+        <div style="font-size:12px;color:#6b7280;line-height:1.5">Lần đầu nhấn Xóa &amp; Reset bạn cần đặt mật mã bảo vệ.<br>Lần sau sẽ yêu cầu nhập mật mã này.</div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:5px">Mật mã mới</div>
+        <input id="rpop-pw1" type="password" placeholder="Nhập mật mã..." autocomplete="new-password"
+          style="width:100%;padding:10px 14px;background:#0d1117;border:1.5px solid #4c1d9555;border-radius:9px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:5px">Xác nhận mật mã</div>
+        <input id="rpop-pw2" type="password" placeholder="Nhập lại mật mã..." autocomplete="new-password"
+          style="width:100%;padding:10px 14px;background:#0d1117;border:1.5px solid #4c1d9555;border-radius:9px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box">
+      </div>
+      <div id="rpop-err" style="font-size:12px;color:#f87171;min-height:16px;margin-bottom:10px;text-align:center"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('reset-pw-popup').remove()" style="flex:1;padding:10px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600">Hủy</button>
+        <button onclick="_confirmSetResetPassword()" style="flex:1;padding:10px;background:linear-gradient(135deg,#1a0a2e,#2d1047);color:#a78bfa;border:1.5px solid #7c3aed66;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700">✅ Đặt Mật Mã</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => { const el = document.getElementById('rpop-pw1'); if(el) el.focus(); }, 100);
+}
+
+function _confirmSetResetPassword() {
+  const pw1 = (document.getElementById('rpop-pw1') || {}).value || '';
+  const pw2 = (document.getElementById('rpop-pw2') || {}).value || '';
+  const errEl = document.getElementById('rpop-err');
+  if (!pw1) { errEl.textContent = '⚠️ Vui lòng nhập mật mã!'; return; }
+  if (pw1.length < 4) { errEl.textContent = '⚠️ Mật mã phải có ít nhất 4 ký tự!'; return; }
+  if (pw1 !== pw2) { errEl.textContent = '❌ Mật mã không khớp!'; return; }
+  _saveResetPassword(pw1);
+  document.getElementById('reset-pw-popup').remove();
+  updateResetPwStatus();
+  showNotif('🔐 Đã đặt mật mã reset thành công!');
+}
+
+function showEnterResetPasswordPopup() {
+  const existing = document.getElementById('reset-pw-popup');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'reset-pw-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
+  overlay.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0d1117,#1a0808);border:2px solid #991b1b66;border-radius:16px;padding:26px 22px;width:100%;max-width:340px;box-shadow:0 0 40px rgba(248,113,113,0.2)">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:36px;margin-bottom:8px">🗑️</div>
+        <div style="font-size:16px;font-weight:800;color:#f87171;margin-bottom:6px">Xác Nhận Xóa & Reset</div>
+        <div style="font-size:12px;color:#6b7280;line-height:1.5">Nhập mật mã để xác nhận.<br><span style="color:#f87171;font-weight:600">Hành động này sẽ xóa toàn bộ dữ liệu!</span></div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:5px">Mật mã</div>
+        <input id="rpop-enter" type="password" placeholder="Nhập mật mã..." autocomplete="current-password"
+          style="width:100%;padding:10px 14px;background:#0d1117;border:1.5px solid #991b1b55;border-radius:9px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box"
+          onkeydown="if(event.key==='Enter')_confirmEnterResetPassword()">
+      </div>
+      <div id="rpop-err" style="font-size:12px;color:#f87171;min-height:16px;margin-bottom:10px;text-align:center"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('reset-pw-popup').remove()" style="flex:1;padding:10px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600">Hủy</button>
+        <button onclick="_confirmEnterResetPassword()" style="flex:1;padding:10px;background:linear-gradient(135deg,#2a0e0e,#3b1a1a);color:#f87171;border:1.5px solid #991b1b66;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700">🗑 Xóa & Reset</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => { const el = document.getElementById('rpop-enter'); if(el) el.focus(); }, 100);
+}
+
+function _confirmEnterResetPassword() {
+  const entered = (document.getElementById('rpop-enter') || {}).value || '';
+  const errEl = document.getElementById('rpop-err');
+  const pw = _getResetPassword();
+  if (!entered) { errEl.textContent = '⚠️ Vui lòng nhập mật mã!'; return; }
+  if (entered !== pw) { errEl.textContent = '❌ Mật mã không đúng!'; return; }
+  document.getElementById('reset-pw-popup').remove();
+  // Thực hiện reset
+  localStorage.removeItem(SAVE_KEY);
+  if (window.storage) window.storage.delete(SAVE_KEY).catch(()=>{});
+  G = defaultState();
+  renderAll();
+  showNotif('🗑 Đã reset toàn bộ!');
+}
+
+function showChangeResetPassword() {
+  const existing = document.getElementById('reset-pw-popup');
+  if (existing) existing.remove();
+  const hasPw = !!_getResetPassword();
+  const overlay = document.createElement('div');
+  overlay.id = 'reset-pw-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
+  overlay.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0d1117,#1a0a2e);border:2px solid #4c1d9566;border-radius:16px;padding:26px 22px;width:100%;max-width:340px;box-shadow:0 0 40px rgba(124,58,237,0.3)">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:36px;margin-bottom:8px">✏️</div>
+        <div style="font-size:16px;font-weight:800;color:#a78bfa;margin-bottom:4px">Đổi Mật Mã Reset</div>
+      </div>
+      ${hasPw ? `
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:5px">Mật mã hiện tại</div>
+        <input id="rpop-old" type="password" placeholder="Nhập mật mã hiện tại..."
+          style="width:100%;padding:10px 14px;background:#0d1117;border:1.5px solid #4c1d9555;border-radius:9px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box">
+      </div>` : ''}
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:5px">Mật mã mới</div>
+        <input id="rpop-pw1" type="password" placeholder="Nhập mật mã mới..." autocomplete="new-password"
+          style="width:100%;padding:10px 14px;background:#0d1117;border:1.5px solid #4c1d9555;border-radius:9px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:5px">Xác nhận mật mã mới</div>
+        <input id="rpop-pw2" type="password" placeholder="Nhập lại mật mã mới..." autocomplete="new-password"
+          style="width:100%;padding:10px 14px;background:#0d1117;border:1.5px solid #4c1d9555;border-radius:9px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box">
+      </div>
+      <div id="rpop-err" style="font-size:12px;color:#f87171;min-height:16px;margin-bottom:10px;text-align:center"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('reset-pw-popup').remove()" style="flex:1;padding:10px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600">Hủy</button>
+        <button onclick="_confirmChangeResetPassword(${hasPw})" style="flex:1;padding:10px;background:linear-gradient(135deg,#1a0a2e,#2d1047);color:#a78bfa;border:1.5px solid #7c3aed66;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700">💾 Lưu</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => {
+    const el = document.getElementById('rpop-old') || document.getElementById('rpop-pw1');
+    if(el) el.focus();
+  }, 100);
+}
+
+function _confirmChangeResetPassword(hasPw) {
+  const errEl = document.getElementById('rpop-err');
+  if (hasPw) {
+    const oldPw = (document.getElementById('rpop-old') || {}).value || '';
+    if (oldPw !== _getResetPassword()) { errEl.textContent = '❌ Mật mã hiện tại không đúng!'; return; }
+  }
+  const pw1 = (document.getElementById('rpop-pw1') || {}).value || '';
+  const pw2 = (document.getElementById('rpop-pw2') || {}).value || '';
+  if (!pw1) { errEl.textContent = '⚠️ Vui lòng nhập mật mã mới!'; return; }
+  if (pw1.length < 4) { errEl.textContent = '⚠️ Mật mã phải có ít nhất 4 ký tự!'; return; }
+  if (pw1 !== pw2) { errEl.textContent = '❌ Mật mã không khớp!'; return; }
+  _saveResetPassword(pw1);
+  document.getElementById('reset-pw-popup').remove();
+  updateResetPwStatus();
+  showNotif('🔐 Đã cập nhật mật mã reset!');
+}
+
