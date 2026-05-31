@@ -837,23 +837,6 @@ function tokenRedeemCode() {
     renderSkinTab();
   });
 }
-  if (!/^\d{2}-\d{2}-\d{2}-\d{2}$/.test(code)) {
-    msg.style.color = '#f87171';
-    msg.textContent = '⚠️ Mã không đúng định dạng! Vui lòng nhập đủ 8 số.';
-    return;
-  }
-  msg.style.color = '#60a5fa'; msg.textContent = '⏳ Đang kiểm tra mã với server...';
-  _callGAPI_T(code, 'token', function(res) {
-    if (!res.ok) { msg.style.color = '#f87171'; msg.textContent = res.msg; return; }
-    G.wallet = G.wallet || {};
-    G.wallet.token = (G.wallet.token || 0) + 500;
-    saveGame(false); updateUI();
-    var popup = document.getElementById('token-code-popup');
-    if (popup) popup.remove();
-    showNotif('🎉 Mã hợp lệ! +500 🔮 Token đã được nạp vào tài khoản!');
-    renderSkinTab();
-  });
-}
 
 window.showTokenShopRealBuyPopup = showTokenShopRealBuyPopup;
 window.showTokenCodePopup = showTokenCodePopup;

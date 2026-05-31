@@ -793,9 +793,10 @@ setTimeout(() => {
     switchTab(savedTab);
   }
   // Restore market sub-tab active class (switchMarket already called if tab=market)
-  if (activeMarket && document.getElementById('mtab-'+activeMarket)) {
+  var _am = (typeof activeMarket !== 'undefined') ? activeMarket : (localStorage.getItem('ui_activeMarket')||'normal');
+  if (_am && document.getElementById('mtab-'+_am)) {
     document.querySelectorAll('.market-tab').forEach(t=>t.classList.remove('active'));
-    document.getElementById('mtab-'+activeMarket).classList.add('active');
+    document.getElementById('mtab-'+_am).classList.add('active');
   }
   // Show tutorial for new players
   if (!G.tutorialDone) {
@@ -2005,7 +2006,7 @@ window._gameSettings = _gameSettings; // shared reference for TV mode restore
 function loadSettings() {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY);
-    if(saved) _gameSettings = Object.assign(_gameSettings, JSON.parse(saved));
+    if(saved) { Object.assign(_gameSettings, JSON.parse(saved)); window._gameSettings = _gameSettings; }
   } catch(e) {}
   applySettingsToUI();
   applyGraphicsSetting();

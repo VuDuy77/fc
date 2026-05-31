@@ -1411,7 +1411,7 @@ function _callGAPI(code, bundleId, callback) {
   .catch(function(e){ callback({ ok: false, msg: '❌ Lỗi kết nối: ' + e.message }); });
 }
 
-function _applyTokenBundleEffectsfunction _applyTokenBundleEffects(id) {
+function _applyTokenBundleEffects(id) {
   var bundle = TOKEN_BUNDLES.find(function(b){ return b.id === id; });
   if (!bundle) return false;
   var fx = bundle.effects;
