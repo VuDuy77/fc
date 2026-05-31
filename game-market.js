@@ -459,6 +459,17 @@ function renderInventory() {
         <div class="inv-btns">
           <button onclick="useEvadeTicket(${idx})" style="background:#1a1500;color:#ffd700;border-color:#b45309;font-size:11px;padding:5px 8px" title="Dùng vé">🎫 Dùng</button>
         </div>`;
+    } else if (invItem.isBannerMetal) {
+      const mc = invItem.color || '#ffd700';
+      div.style.borderColor = mc + '55';
+      div.innerHTML = `
+        <div class="inv-img">${invItem.icon}</div>
+        <div class="inv-name" style="color:${mc}">${invItem.name}</div>
+        <div class="inv-tier" style="background:${mc}22;color:${mc}">${invItem.tier||'rare'}</div>
+        <div style="font-size:10px;color:#00f5ff;margin-bottom:5px">🔮 ${invItem.tokenValue||0} Token</div>
+        <div class="inv-btns">
+          <button onclick="sellBannerMetal(${idx})" style="background:#1a1000;color:#ffd700;border-color:#ffd70066;font-size:11px;padding:5px 8px" title="Bán lấy Token">💰 Bán</button>
+        </div>`;
     } else {
       div.innerHTML = `
         <div class="inv-img">${invItem.icon}</div>
@@ -689,11 +700,12 @@ const TOKEN_BUNDLES = [
     desc:'Combo cực mạnh cho game thủ nghiêm túc!',
     perks:[
       {icon:'⚡',text:'+90 Token'},
+      {icon:'🗝️',text:'+3 Key 🗝️ (quay Banner kim loại quý)'},
       {icon:'🔓',text:'Unlock Tier 2, 3, 4 Shop Machine'},
       {icon:'🌐',text:'Gói Internet Speed vĩnh viễn'},
       {icon:'💹',text:'Value Pump ×2 (tab Nguyên Liệu)'},
     ],
-    effects:{ tokens:90, unlockShopTiers:[2,3,4], permanentSpeedInternet:true, freeValuePump:true }
+    effects:{ tokens:90, keys:3, unlockShopTiers:[2,3,4], permanentSpeedInternet:true, freeValuePump:true }
   },
   {
     id:'token_elite', name:'Elite Token Bundle', icon:'🌟', tier:3,
@@ -703,11 +715,12 @@ const TOKEN_BUNDLES = [
     desc:'Gói trung cấp hoàn hảo — tăng tốc toàn diện!',
     perks:[
       {icon:'🌟',text:'+150 Token'},
+      {icon:'🗝️',text:'+6 Key 🗝️ (quay Banner kim loại quý)'},
       {icon:'🔓',text:'Unlock Tier 3, 4, 5 Shop Machine'},
       {icon:'⛽',text:'Bình Xăng Loại 4 × 3 (tab Điện)'},
       {icon:'🎒',text:'+10 ô Kho Đồ'},
     ],
-    effects:{ tokens:150, unlockShopTiers:[3,4,5], fuelF4:3, bonusInvSlots:10 }
+    effects:{ tokens:150, keys:6, unlockShopTiers:[3,4,5], fuelF4:3, bonusInvSlots:10 }
   },
   {
     id:'token_super', name:'Super Token Bundle', icon:'🚀', tier:4,
@@ -717,9 +730,10 @@ const TOKEN_BUNDLES = [
     desc:'Gói siêu giá trị dành cho người chơi đỉnh cao!',
     perks:[
       {icon:'🚀',text:'+450 Token + 50 Token bonus'},
+      {icon:'🗝️',text:'+15 Key 🗝️ (quay Banner kim loại quý)'},
       {icon:'💵',text:'+400,000đ tiền khởi đầu'},
     ],
-    effects:{ tokens:500, startBonus:400000 }
+    effects:{ tokens:500, keys:15, startBonus:400000 }
   },
   {
     id:'token_legendary', name:'Legendary Token Bundle', icon:'👑', tier:5,
@@ -729,12 +743,13 @@ const TOKEN_BUNDLES = [
     desc:'Gói đỉnh nhất lịch sử game. Chỉ dành cho huyền thoại!',
     perks:[
       {icon:'👑',text:'+1,100 Token'},
+      {icon:'🗝️',text:'+35 Key 🗝️ (quay Banner kim loại quý)'},
       {icon:'🌐',text:'Gói Internet Speed vĩnh viễn'},
       {icon:'🏭',text:'Bình Xăng Loại 5 × 5 (tab Điện)'},
       {icon:'💰',text:'+5,000,000$ tiền khởi đầu'},
       {icon:'🎫',text:'+20 Vé Trốn Thuế & Trốn Nợ (vào Túi Đồ)'},
     ],
-    effects:{ tokens:1100, permanentSpeedInternet:true, fuelF5:5, startBonusMillion:5, taxEvadeTickets:20 }
+    effects:{ tokens:1100, keys:35, permanentSpeedInternet:true, fuelF5:5, startBonusMillion:5, taxEvadeTickets:20 }
   },
   {
     id:'token_supermega', name:'Super Mega Key Bundle', icon:'🗝️', tier:6,
@@ -744,13 +759,14 @@ const TOKEN_BUNDLES = [
     desc:'Chìa khóa siêu cấp mở toàn bộ tiềm năng — tokens khổng lồ & vốn khởi nghiệp tỷ đô!',
     perks:[
       {icon:'🗝️',text:'+2,888 Token — Siêu Cấp'},
+      {icon:'🗝️',text:'+80 Key 🗝️ (quay Banner kim loại quý)'},
       {icon:'💵',text:'+1,000,000,000$ (1 Tỷ) tiền khởi đầu'},
       {icon:'🌐',text:'Gói Internet Speed vĩnh viễn'},
       {icon:'⛽',text:'Bình Xăng Loại 5 × 10 (tab Điện)'},
       {icon:'🎫',text:'+30 Vé Trốn Thuế & Trốn Nợ'},
       {icon:'🎒',text:'+30 ô Kho Đồ mở rộng'},
     ],
-    effects:{ tokens:2888, startBonusBillion:1, permanentSpeedInternet:true, fuelF5:10, taxEvadeTickets:30, bonusInvSlots:30 }
+    effects:{ tokens:2888, keys:80, startBonusBillion:1, permanentSpeedInternet:true, fuelF5:10, taxEvadeTickets:30, bonusInvSlots:30 }
   },
   {
     id:'token_arch', name:'Arch Bundle', icon:'⚜️', tier:7,
@@ -760,6 +776,7 @@ const TOKEN_BUNDLES = [
     desc:'Bundle tối thượng — quyền năng tuyệt đối, chỉ dành cho Arch Nemesis đích thực!',
     perks:[
       {icon:'⚜️',text:'+4,888 Token — Tuyệt Đỉnh'},
+      {icon:'🗝️',text:'+200 Key 🗝️ (quay Banner kim loại quý)'},
       {icon:'💰',text:'+3,000,000,000$ (3 Tỷ) tiền khởi đầu'},
       {icon:'🌐',text:'Gói Internet Speed vĩnh viễn'},
       {icon:'⛽',text:'Bình Xăng Loại 5 × 20 (tab Điện)'},
@@ -767,7 +784,7 @@ const TOKEN_BUNDLES = [
       {icon:'🎒',text:'+50 ô Kho Đồ mở rộng'},
       {icon:'🔓',text:'Unlock tất cả Shop Tier ngay lập tức'},
     ],
-    effects:{ tokens:4888, startBonusBillion:3, permanentSpeedInternet:true, fuelF5:20, taxEvadeTickets:50, bonusInvSlots:50, unlockAllTiers:true }
+    effects:{ tokens:4888, keys:200, startBonusBillion:3, permanentSpeedInternet:true, fuelF5:20, taxEvadeTickets:50, bonusInvSlots:50, unlockAllTiers:true }
   },
 ];
 
@@ -1285,18 +1302,32 @@ function showTokenBundlePopup(id, bundle) {
     + '<div style="text-align:center;margin-bottom:18px">'
       + '<div style="font-size:44px;margin-bottom:6px">' + bundle.icon + '</div>'
       + '<div style="font-size:17px;font-weight:800;color:' + bundle.color + ';margin-bottom:4px">' + bundle.name + '</div>'
-      + '<div style="font-size:13px;color:#6b7280">' + bundle.priceDisplay + ' · +' + bundle.tokens + ' 🔮</div>'
+      + '<div style="font-size:13px;color:#6b7280">' + bundle.priceDisplay + ' · +' + bundle.tokens.toLocaleString() + ' 🔮</div>'
     + '</div>'
-    + '<div style="font-size:13px;color:#9ca3af;margin-bottom:8px">🔑 Nhập mã kích hoạt bundle:</div>'
-    + '<input id="tbpop-code-' + id + '" type="text" placeholder="Nhập mã tại đây..." style="width:100%;padding:11px 14px;background:#0d1117;border:1.5px solid ' + bundle.border + '55;border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:12px" />'
-    + '<div id="tbpop-err-' + id + '" style="font-size:12px;color:#f87171;min-height:16px;margin-bottom:8px;text-align:center"></div>'
-    + '<button onclick="confirmTokenBundleCode(\'' + id + '\')" style="width:100%;padding:13px;background:linear-gradient(135deg,' + bundle.theme.replace('linear-gradient(135deg,','').replace(')','') + ');color:' + bundle.color + ';border:2px solid ' + bundle.border + ';border-radius:12px;cursor:pointer;font-size:15px;font-weight:700;letter-spacing:0.5px">💳 Xác Nhận Mua</button>'
-    + '<div style="font-size:11px;color:#374151;text-align:center;margin-top:10px">Liên hệ admin để nhận mã kích hoạt</div>'
+    + '<div style="font-size:13px;color:#4ade80;font-weight:700;margin-bottom:12px;text-align:center">💳 Chọn phương thức thanh toán · Mua được nhiều lần</div>'
+    + '<div onclick="document.getElementById(\'token-bundle-popup\').remove();showMarketCodePopup(\'' + id + '\')" '
+    + 'style="background:linear-gradient(135deg,#0a1220,#111f3a);border:1.5px solid #3b82f655;border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px" '
+    + 'onmouseover="this.style.borderColor=\'#60a5fa88\'" onmouseout="this.style.borderColor=\'#3b82f655\'">'
+    +   '<div style="font-size:28px;flex-shrink:0">🔑</div>'
+    +   '<div>'
+    +     '<div style="font-size:14px;font-weight:700;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
+    +     '<div style="font-size:11px;color:#6b7280;margin-top:2px">Mã dạng <span style="color:#93c5fd;font-family:monospace">XX-XX-XX-XX</span></div>'
+    +     '<div style="font-size:11px;color:#374151;margin-top:2px">Mua mã: <span style="color:#60a5fa">tranthikimai4@gmail.com</span></div>'
+    +   '</div>'
+    + '</div>'
+    + '<div onclick="document.getElementById(\'token-bundle-popup\').remove();showMarketBankPopup(\'' + id + '\')" '
+    + 'style="background:linear-gradient(135deg,#120a20,#1e1235);border:1.5px solid #7c3aed55;border-radius:14px;padding:14px;cursor:pointer;display:flex;align-items:center;gap:12px" '
+    + 'onmouseover="this.style.borderColor=\'#a78bfa88\'" onmouseout="this.style.borderColor=\'#7c3aed55\'">'
+    +   '<div style="font-size:28px;flex-shrink:0">🏦</div>'
+    +   '<div>'
+    +     '<div style="font-size:14px;font-weight:700;color:#a78bfa">Chuyển Khoản Ngân Hàng</div>'
+    +     '<div style="font-size:11px;color:#6b7280;margin-top:2px">Vietcombank · TK: <span style="color:#c4b5fd;font-family:monospace;font-weight:700">0905393373</span></div>'
+    +     '<div style="font-size:11px;color:#374151;margin-top:2px">Liên hệ email sau khi chuyển khoản</div>'
+    +   '</div>'
+    + '</div>'
     + '</div>';
 
   document.body.appendChild(overlay);
-  // Focus input
-  setTimeout(function(){ var inp = document.getElementById('tbpop-code-' + id); if(inp) inp.focus(); }, 100);
 }
 
 function showUltraBundlePopup(id, bundle) {
@@ -1337,16 +1368,234 @@ function showUltraBundlePopup(id, bundle) {
         + '<div style="font-size:12px;color:' + (isArch ? '#ffaa44' : '#00d4ff') + ';margin-top:4px;letter-spacing:1px;">' + bundle.priceDisplay + ' · <span style="color:#00f5ff;font-weight:700">+' + bundle.tokens.toLocaleString() + ' 🔮</span></div>'
         + '<div style="font-size:11px;color:#6b7280;margin-top:3px;">' + bundle.desc + '</div>'
       + '</div>'
-      + '<div style="font-size:13px;color:#9ca3af;margin-bottom:8px;">🔑 Nhập mã kích hoạt bundle:</div>'
-      + '<input id="tbpop-code-' + id + '" type="text" placeholder="Nhập mã tại đây..." class="' + (isArch ? 'ultra-input-arch' : 'ultra-input-smk') + '" />'
-      + '<div id="tbpop-err-' + id + '" style="font-size:12px;color:#f87171;min-height:18px;margin-bottom:8px;text-align:center;"></div>'
-      + '<button onclick="confirmTokenBundleCode(\'' + id + '\')" class="' + btnClass + '">💳 Xác Nhận Kích Hoạt</button>'
-      + '<div style="font-size:11px;color:#374151;text-align:center;margin-top:10px;">Liên hệ admin để nhận mã kích hoạt</div>'
+      + '<div style="font-size:13px;color:#4ade80;font-weight:700;margin-bottom:12px;text-align:center;">💳 Chọn phương thức thanh toán · Mua được nhiều lần</div>'
+      + '<div onclick="document.getElementById(\'token-bundle-popup\').remove();showMarketCodePopup(\'' + id + '\')" '
+      + 'style="background:linear-gradient(135deg,#0a1220,#111f3a);border:1.5px solid #3b82f655;border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px" '
+      + 'onmouseover="this.style.borderColor=\'#60a5fa88\'" onmouseout="this.style.borderColor=\'#3b82f655\'">'
+      +   '<div style="font-size:28px;flex-shrink:0">🔑</div>'
+      +   '<div>'
+      +     '<div style="font-size:14px;font-weight:700;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
+      +     '<div style="font-size:11px;color:#6b7280;margin-top:2px">Mã dạng <span style="color:#93c5fd;font-family:monospace">XX-XX-XX-XX</span></div>'
+      +     '<div style="font-size:11px;color:#374151;margin-top:2px">Mua mã: <span style="color:#60a5fa">tranthikimai4@gmail.com</span></div>'
+      +   '</div>'
+      + '</div>'
+      + '<div onclick="document.getElementById(\'token-bundle-popup\').remove();showMarketBankPopup(\'' + id + '\')" '
+      + 'style="background:linear-gradient(135deg,#120a20,#1e1235);border:1.5px solid #7c3aed55;border-radius:14px;padding:14px;cursor:pointer;display:flex;align-items:center;gap:12px" '
+      + 'onmouseover="this.style.borderColor=\'#a78bfa88\'" onmouseout="this.style.borderColor=\'#7c3aed55\'">'
+      +   '<div style="font-size:28px;flex-shrink:0">🏦</div>'
+      +   '<div>'
+      +     '<div style="font-size:14px;font-weight:700;color:#a78bfa">Chuyển Khoản Ngân Hàng</div>'
+      +     '<div style="font-size:11px;color:#6b7280;margin-top:2px">Vietcombank · TK: <span style="color:#c4b5fd;font-family:monospace;font-weight:700">0905393373</span></div>'
+      +     '<div style="font-size:11px;color:#374151;margin-top:2px">Liên hệ email sau khi chuyển khoản</div>'
+      +   '</div>'
+      + '</div>'
     + '</div>';
 
   document.body.appendChild(overlay);
-  setTimeout(function(){ var inp = document.getElementById('tbpop-code-' + id); if(inp) inp.focus(); }, 150);
 }
+
+// ═══ API HELPER — Kết nối Google Sheets ══════════════════════════════════
+function _callGAPI(code, bundleId, callback) {
+  var url = (typeof localStorage !== 'undefined' && localStorage.getItem('factory_api_url')) || '';
+  if (!url) {
+    callback({ ok: false, msg: '⚠️ Chưa cài đặt API! Vui lòng liên hệ admin.' });
+    return;
+  }
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'check', code: code.trim().toUpperCase(), bundleId: bundleId || '*' })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){ callback(data); })
+  .catch(function(e){ callback({ ok: false, msg: '❌ Lỗi kết nối: ' + e.message }); });
+}
+
+function _applyTokenBundleEffectsfunction _applyTokenBundleEffects(id) {
+  var bundle = TOKEN_BUNDLES.find(function(b){ return b.id === id; });
+  if (!bundle) return false;
+  var fx = bundle.effects;
+  var tokenBonus = 0;
+  if (G.factoryPremium) tokenBonus = Math.floor((fx.tokens||0) * 0.10);
+  else if (G.factoryPlus) tokenBonus = Math.floor((fx.tokens||0) * 0.05);
+  G.wallet.token = (G.wallet.token||0) + (fx.tokens||0) + tokenBonus;
+  if (fx.keys) { G.wallet.key = (G.wallet.key||0) + fx.keys; }
+  if (fx.blockAds) { G.adBlockCount = (G.adBlockCount||0) + fx.blockAds; }
+  if (fx.unlockShopTiers && fx.unlockShopTiers.length) {
+    if (!G.unlockedTiers) G.unlockedTiers = [];
+    fx.unlockShopTiers.forEach(function(t){ if (!G.unlockedTiers.includes(t)) G.unlockedTiers.push(t); });
+  }
+  if (fx.permanentSpeedInternet) {
+    G.permanentSpeedInternet = true;
+    G.inetPackage = 'speed';
+    G.inetExpiry = Date.now() + 100*365*24*60*60*1000;
+  }
+  if (fx.freeValuePump) { G.valueMultiplier = (G.valueMultiplier||1) * 2; }
+  if (fx.startBonus) { G.money += fx.startBonus; }
+  if (fx.startBonusMillion) { G.money += fx.startBonusMillion * 1000000; }
+  if (fx.startBonusBillion) { G.money += fx.startBonusBillion * 1000000000; }
+  if (fx.unlockAllTiers) {
+    if (!G.unlockedTiers) G.unlockedTiers = [];
+    for (var ti = 1; ti <= 10; ti++) { if (!G.unlockedTiers.includes(ti)) G.unlockedTiers.push(ti); }
+  }
+  if (fx.fuelF4) {
+    var fuelF4Type = FUEL_TYPES.find(function(f){ return f.id === 'f4'; });
+    if (fuelF4Type) {
+      G.powerSeconds = (G.powerSeconds||0) + fuelF4Type.seconds * fx.fuelF4;
+      G.totalPowerBought = (G.totalPowerBought||0) + fuelF4Type.seconds * fx.fuelF4;
+      G.powerOutageTriggered = true; powerState = 'normal';
+      try { hideOutageScreen(); applyPowerOutageLock(false); updateProgressBars(); } catch(e){}
+    }
+  }
+  if (fx.fuelF5) {
+    var fuelF5Type = FUEL_TYPES.find(function(f){ return f.id === 'f5'; });
+    if (fuelF5Type) {
+      G.powerSeconds = (G.powerSeconds||0) + fuelF5Type.seconds * fx.fuelF5;
+      G.totalPowerBought = (G.totalPowerBought||0) + fuelF5Type.seconds * fx.fuelF5;
+      G.powerOutageTriggered = true; powerState = 'normal';
+      try { hideOutageScreen(); applyPowerOutageLock(false); updateProgressBars(); } catch(e){}
+    }
+  }
+  if (fx.bonusInvSlots) { G.invMaxSlots = (G.invMaxSlots||50) + fx.bonusInvSlots; }
+  if (fx.taxEvadeTickets) {
+    G.taxEvadeTickets = (G.taxEvadeTickets||0) + fx.taxEvadeTickets;
+    G.debtEvadeTickets = (G.debtEvadeTickets||0) + fx.taxEvadeTickets;
+    for (var t = 0; t < fx.taxEvadeTickets; t++) {
+      if (G.inventory.length < G.invMaxSlots) {
+        G.inventory.push({ id:'evade_ticket_'+Date.now()+'_'+t, itemId:'evade_ticket', name:'Vé Trốn Thuế & Nợ', icon:'🎫', tier:'special', boughtPrice:0, recyclePoints:0, obtainedAt:Date.now(), isTicket:true });
+      }
+    }
+  }
+  updateUI(); saveGame(false);
+  renderVipShop(); renderSlots(); renderShopTabs();
+  var bonusMsg = tokenBonus > 0 ? ' (+' + tokenBonus + ' bonus 🔮!)' : '';
+  showNotif('🎉 ' + bundle.name + ' đã kích hoạt! +' + bundle.tokens + ' 🔮' + bonusMsg);
+  return true;
+}
+
+// ═══ POPUP NHẬP MÃ ════════════════════════════════════════════════════════
+function showMarketCodePopup(id) {
+  var existing = document.getElementById('market-code-popup');
+  if (existing) existing.remove();
+  var bundle = TOKEN_BUNDLES.find(function(b){ return b.id === id; });
+  var bName = bundle ? bundle.name : 'Bundle';
+  var bColor = bundle ? bundle.color : '#4ade80';
+  var bBorder = bundle ? bundle.border : '#4ade80';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'market-code-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)';
+  overlay.innerHTML =
+    '<div style="background:linear-gradient(135deg,#0a1220,#111f3a);border:2px solid #3b82f666;border-radius:20px;padding:26px 20px;width:100%;max-width:360px;position:relative;box-shadow:0 0 50px #3b82f622">'
+    + '<button onclick="document.getElementById(\'market-code-popup\').remove();showTokenBundlePopup(\'' + id + '\')" style="position:absolute;top:12px;left:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px;font-weight:700">← Quay lại</button>'
+    + '<button onclick="document.getElementById(\'market-code-popup\').remove()" style="position:absolute;top:12px;right:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:15px;font-weight:700">✕</button>'
+    + '<div style="text-align:center;margin-bottom:18px;padding-top:8px">'
+    +   '<div style="font-size:42px;margin-bottom:6px">🔑</div>'
+    +   '<div style="font-size:17px;font-weight:800;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
+    +   '<div style="font-size:12px;color:' + bColor + ';margin-top:4px;font-weight:600">' + bName + '</div>'
+    +   '<div style="font-size:11px;color:#6b7280;margin-top:2px">Mã 8 số: XX-XX-XX-XX · Mua được nhiều lần</div>'
+    + '</div>'
+    + '<div style="background:#0d1117;border:1px solid #3b82f633;border-radius:12px;padding:14px;margin-bottom:14px">'
+    +   '<div style="font-size:12px;color:#60a5fa;font-weight:700;margin-bottom:8px">📧 Cách mua mã:</div>'
+    +   '<div style="font-size:12px;color:#9ca3af;line-height:1.9">1. Liên hệ email để đặt mua<br>2. Thanh toán và nhận mã kích hoạt<br>3. Nhập mã bên dưới để kích hoạt</div>'
+    +   '<div style="margin-top:10px;background:#111827;border:1px solid #3b82f644;border-radius:8px;padding:10px;display:flex;align-items:center;gap:8px">'
+    +     '<span style="font-size:16px">📮</span>'
+    +     '<div><div style="font-size:11px;color:#4b5563">Email liên hệ:</div><div style="font-size:13px;font-weight:700;color:#60a5fa">tranthikimai4@gmail.com</div></div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    +   '<div style="font-size:12px;color:#6b7280;margin-bottom:7px;font-weight:600">Nhập mã của bạn:</div>'
+    +   '<input id="market-code-input-' + id + '" type="text" maxlength="14" placeholder="VD: AB7H-32F5-53PQ" '
+    +   'oninput="marketFormatCode(this)" '
+    +   'style="width:100%;box-sizing:border-box;padding:13px 14px;background:#111827;border:2px solid #3b82f644;border-radius:10px;color:#e2e8f0;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:3px;text-align:center;outline:none" '
+    +   'onfocus="this.style.borderColor=\'#60a5fa88\'" onblur="this.style.borderColor=\'#3b82f644\'">'
+    +   '<div id="market-code-msg-' + id + '" style="font-size:12px;margin-top:7px;text-align:center;min-height:18px"></div>'
+    + '</div>'
+    + '<button onclick="marketRedeemCode(\'' + id + '\')" '
+    + 'style="width:100%;padding:13px;background:linear-gradient(135deg,#1e3a5f,#1e40af);color:#93c5fd;border:1.5px solid #3b82f655;border-radius:10px;cursor:pointer;font-size:14px;font-weight:800">'
+    + '✅ Kích Hoạt & Nhận Bundle</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  setTimeout(function(){ var inp = document.getElementById('market-code-input-'+id); if(inp) inp.focus(); }, 100);
+}
+
+function marketFormatCode(input) {
+  var raw = input.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 12);
+  var parts = [];
+  for (var i = 0; i < raw.length; i += 4) parts.push(raw.slice(i, i + 4));
+  input.value = parts.join('-');
+}
+
+function marketRedeemCode(id) {
+  var input = document.getElementById('market-code-input-' + id);
+  var msg = document.getElementById('market-code-msg-' + id);
+  if (!input || !msg) return;
+  var code = input.value.trim().toUpperCase();
+  if (!/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code)) {
+    msg.style.color = '#f87171'; msg.textContent = '⚠️ Mã không đúng định dạng! VD: AB7H-32F5-53PQ'; return;
+  }
+  msg.style.color = '#60a5fa'; msg.textContent = '⏳ Đang kiểm tra mã...';
+  _callGAPI(code, id, function(res) {
+    if (!res.ok) {
+      msg.style.color = '#f87171'; msg.textContent = res.msg; return;
+    }
+    var popup = document.getElementById('market-code-popup');
+    if (popup) popup.remove();
+    _applyTokenBundleEffects(id);
+  });
+}
+
+// ═══ POPUP NGÂN HÀNG ══════════════════════════════════════════════════════
+function showMarketBankPopup(id) {
+  var existing = document.getElementById('market-bank-popup');
+  if (existing) existing.remove();
+  var bundle = TOKEN_BUNDLES.find(function(b){ return b.id === id; });
+  var bName = bundle ? bundle.name : 'Bundle';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'market-bank-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)';
+  overlay.innerHTML =
+    '<div style="background:linear-gradient(135deg,#120a20,#1e1235);border:2px solid #7c3aed66;border-radius:20px;padding:26px 20px;width:100%;max-width:360px;position:relative;box-shadow:0 0 50px #7c3aed22">'
+    + '<button onclick="document.getElementById(\'market-bank-popup\').remove();showTokenBundlePopup(\'' + id + '\')" style="position:absolute;top:12px;left:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px;font-weight:700">← Quay lại</button>'
+    + '<button onclick="document.getElementById(\'market-bank-popup\').remove()" style="position:absolute;top:12px;right:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:15px;font-weight:700">✕</button>'
+    + '<div style="text-align:center;margin-bottom:18px;padding-top:8px">'
+    +   '<div style="font-size:42px;margin-bottom:6px">🏦</div>'
+    +   '<div style="font-size:17px;font-weight:800;color:#a78bfa">Chuyển Khoản Ngân Hàng</div>'
+    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">' + bName + ' · Nhận Bundle sau khi xác nhận</div>'
+    + '</div>'
+    + '<div style="background:#0d0d1a;border:1.5px solid #7c3aed55;border-radius:14px;padding:16px;margin-bottom:14px">'
+    +   '<div style="font-size:11px;color:#7c3aed;font-weight:700;letter-spacing:1px;margin-bottom:10px">THÔNG TIN NGÂN HÀNG</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #1f2937">'
+    +     '<span style="font-size:13px;color:#6b7280">Ngân hàng:</span><span style="font-size:14px;font-weight:700;color:#c4b5fd">Vietcombank</span>'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #1f2937">'
+    +     '<span style="font-size:13px;color:#6b7280">Số tài khoản:</span>'
+    +     '<div style="display:flex;align-items:center;gap:6px">'
+    +       '<span style="font-size:16px;font-weight:900;color:#a78bfa;font-family:monospace;letter-spacing:2px">0905393373</span>'
+    +       '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\'0905393373\').then(function(){var b=document.getElementById(\'copy-mkt-bank-btn\');if(b){b.textContent=\'✓\';setTimeout(function(){b.textContent=\'📋\'},1500)}})" id="copy-mkt-bank-btn" style="background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px">📋</button>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center">'
+    +     '<span style="font-size:13px;color:#6b7280">Chủ tài khoản:</span><span style="font-size:13px;font-weight:700;color:#e2e8f0">Trần Thị Kim Mai</span>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="background:#0d1117;border:1px solid #7c3aed33;border-radius:12px;padding:14px;margin-bottom:14px">'
+    +   '<div style="font-size:12px;color:#a78bfa;font-weight:700;margin-bottom:8px">📋 Các bước thực hiện:</div>'
+    +   '<div style="font-size:12px;color:#9ca3af;line-height:2">1. Chuyển khoản, nội dung: <span style="color:#c4b5fd;font-weight:700">TEN_GAME ' + id.replace('token_','').toUpperCase() + '</span><br>2. Chụp biên lai và gửi email đến:<br><span style="color:#a78bfa;font-weight:700">tranthikimai4@gmail.com</span><br>3. Nhận mã kích hoạt qua email<br>4. Nhập mã tại mục <b style="color:#60a5fa">Nhập Mã Kích Hoạt</b></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px">'
+    +   '<button onclick="document.getElementById(\'market-bank-popup\').remove()" style="flex:1;padding:11px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">Đóng</button>'
+    +   '<button onclick="document.getElementById(\'market-bank-popup\').remove();showMarketCodePopup(\'' + id + '\')" style="flex:1;padding:11px;background:linear-gradient(135deg,#1e1235,#2d1a4a);color:#c4b5fd;border:1.5px solid #7c3aed55;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700">🔑 Nhập Mã</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+window.showMarketCodePopup = showMarketCodePopup;
+window.showMarketBankPopup = showMarketBankPopup;
+window.marketFormatCode = marketFormatCode;
+window.marketRedeemCode = marketRedeemCode;
 
 function confirmTokenBundleCode(id) {
   var inp = document.getElementById('tbpop-code-' + id);
@@ -1370,6 +1619,7 @@ function confirmTokenBundleCode(id) {
   if (G.factoryPremium) tokenBonus = Math.floor((fx.tokens||0) * 0.10);
   else if (G.factoryPlus) tokenBonus = Math.floor((fx.tokens||0) * 0.05);
   G.wallet.token = (G.wallet.token||0) + (fx.tokens||0) + tokenBonus;
+  if (fx.keys) { G.wallet.key = (G.wallet.key||0) + fx.keys; }
   if (fx.blockAds) { G.adBlockCount = (G.adBlockCount||0) + fx.blockAds; }
   if (fx.unlockShopTiers && fx.unlockShopTiers.length) {
     if (!G.unlockedTiers) G.unlockedTiers = [];

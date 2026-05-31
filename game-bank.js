@@ -189,9 +189,8 @@ function exchangeFromN(id, n) {
 
 // ═══ LOAN SYSTEM ═════════════════════════════════════════════════
 function loanMaxAmount() {
-  // Tier 4 unlocked → $2000, otherwise $300
-  if (G.unlockedTiers && G.unlockedTiers.includes(4)) return 2000;
-  return 300;
+  // Hạn mức vay tối đa $1,000,000,000
+  return 1000000000;
 }
 
 // Returns the per-second interest rate multiplier for the current loan count
@@ -301,7 +300,7 @@ function renderLoanPanel() {
           💰 Trả ${fmt(owed)} ${!canRepay?'(Không đủ tiền)':''}
         </button>
         ${!canRepay?`<div style="font-size:11px;color:#4b5563;text-align:center;margin-top:4px">Thiếu ${fmt(owed - G.money)}</div>`:''}
-        ${(G.debtEvadeTickets||0) > 0 ? `<button onclick="useEvadeTicketFromTab('loan')" style="margin-top:10px;width:100%;padding:10px;background:#1a1500;color:#ffd700;border:1px solid #b45309;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🎫 Dùng Vé Xóa Nợ (còn ${G.debtEvadeTickets||0} vé)</button>` : ''}
+        ${(G.debtEvadeTickets||0) > 0 ? `<button onclick="useEvadeTicketFromTab('loan')" style="margin-top:10px;width:100%;padding:10px;background:#1a1500;color:#ffd700;border:1px solid #b45309;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🎫 Dùng Vé Giảm 50% Nợ (còn ${G.debtEvadeTickets||0} vé)</button>` : ''}
       </div>`;
   }
 }
@@ -352,7 +351,7 @@ function useEvadeTicket(invIdx) {
       + '<div style="font-size:12px;color:#6b7280">Chọn cách sử dụng vé này</div>'
     + '</div>'
     + '<button onclick="applyEvadeTicket(' + invIdx + ',\'tax\')" style="width:100%;padding:12px;background:#1a1500;color:#ffd700;border:1.5px solid #b45309;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;margin-bottom:10px">🧾 Xóa 1 Hóa Đơn Thuế</button>'
-    + '<button onclick="applyEvadeTicket(' + invIdx + ',\'loan\')" style="width:100%;padding:12px;background:#1a0f00;color:#fb923c;border:1.5px solid #92400e;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🏦 Xóa Khoản Nợ Hiện Tại</button>'
+    + '<button onclick="applyEvadeTicket(' + invIdx + ',\'loan\')" style="width:100%;padding:12px;background:#1a0f00;color:#fb923c;border:1.5px solid #92400e;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🏦 Giảm 50% Khoản Nợ</button>'
     + '</div>';
   document.body.appendChild(overlay);
 }
@@ -378,15 +377,18 @@ function applyEvadeTicket(invIdx, type) {
     if (document.getElementById('panel-inventory').classList.contains('active')) renderInventory();
   } else if (type === 'loan') {
     if (!G.loan || !G.loan.active) { showError('⚠️ Bạn không có khoản nợ nào!'); return; }
-    const wasLocked = G.loan.lockedFeatures;
-    const prevCount = G.loan.loanCount || 0;
-    G.loan = { active:false, principal:0, interest:0, borrowedAt:0, lockedFeatures:false, bankruptTriggered:false, loanCount: prevCount };
-    if (wasLocked) { applyLoanLockState(false); }
+    // Giảm sức mạnh: chỉ giảm 50% nợ gốc + lãi, không xóa hết
+    var halfPrincipal = Math.floor(G.loan.principal * 0.5);
+    var halfInterest = Math.floor(G.loan.interest * 0.5);
+    G.loan.principal = halfPrincipal;
+    G.loan.interest = halfInterest;
+    // Gia hạn thêm 5 phút
+    G.loan.borrowedAt = Date.now() - Math.max(0, (Date.now() - G.loan.borrowedAt) - 300000);
     G.inventory.splice(invIdx, 1);
     G.debtEvadeTickets = Math.max(0, (G.debtEvadeTickets||0) - 1);
     var popup = document.getElementById('evade-ticket-popup');
     if (popup) popup.remove();
-    showNotif('🎫 Vé đã xóa toàn bộ khoản nợ miễn phí!');
+    showNotif('🎫 Vé giảm 50% nợ! Còn lại: gốc ' + fmt(halfPrincipal) + ', lãi ' + fmt(halfInterest));
     updateUI(); saveGame(false);
     renderLoanPanel();
     if (document.getElementById('panel-inventory').classList.contains('active')) renderInventory();
@@ -408,12 +410,12 @@ function useEvadeTicketFromTab(type) {
       updateUI(); saveGame(false); renderTaxPanel(); renderTaxBadge();
     } else {
       if (!G.loan || !G.loan.active) { showError('⚠️ Không có khoản nợ!'); return; }
-      var wasLocked2 = G.loan.lockedFeatures;
-      var prevCount2 = G.loan.loanCount || 0;
-      G.loan = { active:false, principal:0, interest:0, borrowedAt:0, lockedFeatures:false, bankruptTriggered:false, loanCount:prevCount2 };
-      if (wasLocked2) applyLoanLockState(false);
+      // Giảm sức mạnh: chỉ giảm 50% nợ
+      G.loan.principal = Math.floor(G.loan.principal * 0.5);
+      G.loan.interest = Math.floor(G.loan.interest * 0.5);
+      G.loan.borrowedAt = Date.now() - Math.max(0, (Date.now() - G.loan.borrowedAt) - 300000);
       G.debtEvadeTickets = Math.max(0, (G.debtEvadeTickets||0) - 1);
-      showNotif('🎫 Vé đã xóa khoản nợ!');
+      showNotif('🎫 Vé giảm 50% nợ! Còn lại: ' + fmt(G.loan.principal + G.loan.interest));
       updateUI(); saveGame(false); renderLoanPanel();
     }
     return;
@@ -999,6 +1001,12 @@ function updateUI() {
   const hdrTokenVal = document.getElementById('hdr-token-val');
   if (hdrToken) hdrToken.style.display = tokenAmt > 0 ? 'inline-flex' : 'none';
   if (hdrTokenVal) hdrTokenVal.textContent = tokenAmt.toLocaleString();
+  // Update key display in titlebar
+  const keyAmt = G.wallet && G.wallet.key ? G.wallet.key : 0;
+  const hdrKey = document.getElementById('hdr-key');
+  const hdrKeyVal = document.getElementById('hdr-key-val');
+  if (hdrKey) hdrKey.style.display = keyAmt > 0 ? 'inline-flex' : 'none';
+  if (hdrKeyVal) hdrKeyVal.textContent = keyAmt.toLocaleString();
   if (document.getElementById('panel-stats').classList.contains('active')) renderStats();
 }
 
@@ -1099,20 +1107,20 @@ function renderStats() {
       <span style="color:#fbbf24;font-weight:600">x${vm.toFixed(2)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0">
-      <span style="color:#9ca3af">Tốc độ tăng</span>
-      <span style="color:#4ade80">+1% / phút (compound)</span>
+      <span style="color:#9ca3af">Tăng trưởng</span>
+      <span style="color:#4ade80">Sqrt (tối đa x10 sau ~100h)</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0">
       <span style="color:#9ca3af">Thời gian chơi</span>
       <span style="color:#60a5fa">${mins.toFixed(1)} phút</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0">
-      <span style="color:#9ca3af">Dự báo 10 phút</span>
-      <span style="color:#a78bfa">x${(vm * Math.pow(1.01, 10)).toFixed(2)}</span>
+      <span style="color:#9ca3af">Dự báo 1 giờ nữa</span>
+      <span style="color:#a78bfa">x${Math.min(1 + 4*Math.sqrt((G.playedSeconds+3600)/72000), 10).toFixed(2)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0">
-      <span style="color:#9ca3af">Dự báo 1 giờ</span>
-      <span style="color:#f472b6">x${(vm * Math.pow(1.01, 60)).toFixed(1)}</span>
+      <span style="color:#9ca3af">Tối đa (cap)</span>
+      <span style="color:#f472b6">x10.00</span>
     </div>`;
   const counts = {};
   G.slots.forEach(s => { if (s&&s.machine) counts[s.machine]=(counts[s.machine]||0)+1; });
@@ -1127,7 +1135,7 @@ function renderStats() {
 
 function switchTab(tab) {
   // Block tab switching during power outage or manual off (except allowed tabs)
-  const outageAllowed = ['electricity', 'bank', 'settings', 'updatelog'];
+  const outageAllowed = ['electricity', 'bank', 'settings', 'updatelog', 'rank', 'stats'];
   const isPowerDown = (G.powerOutageTriggered && G.powerSeconds <= 0) || G.manualPowerOff;
   if (isPowerDown && !outageAllowed.includes(tab)) {
     showError('⚡ Mất điện! Chỉ có thể dùng tab Điện và Ngân Hàng.');
@@ -1153,7 +1161,8 @@ function switchTab(tab) {
   if (tab==='inventory') renderInventory();
   if (tab==='rshop') renderRShop();
   if (tab==='vipshop') renderVipShop();
-  if (tab==='computer') { initTerminal(); updateInetStatusBar(); }
+  if (tab==='computer') { initTerminal(); updateInetStatusBar(); if (typeof initFacOsDesktop === 'function') initFacOsDesktop(); }
+  if (tab==='banner') { if (typeof renderBannerPanel === 'function') renderBannerPanel(); }
   if (tab==='lottery') renderLottery();
   if (tab==='electricity') renderElecPanel();
   if (tab==='matshop') renderMatShop();
@@ -1162,6 +1171,7 @@ function switchTab(tab) {
   if (tab==='shop') { initShopAds(); }
   if (tab==='updatelog') {
     if (typeof injectUpdateLogPanel === 'function') injectUpdateLogPanel();
+    setTimeout(function(){ if (typeof _showUpdateLogReward === 'function') _showUpdateLogReward(); }, 200);
   }
   if (tab==='rank') {
     const _rw = (typeof G !== 'undefined') ? (G.money || 0) : 0;

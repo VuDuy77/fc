@@ -421,7 +421,7 @@ function doBossEnding(type) {
       hist.goodDone = true;
       saveGame(false);
       if (G.inventory.length < G.invMaxSlots) {
-        G.inventory.push({id:'boss_ammo_'+Date.now(),itemId:'bm_ammo_ak',name:'Đạn AK 7.62x39 (300 viên) — Quà Trùm',icon:'📦',boughtPrice:0,tier:'tech',recyclePoints:50,baseMinPrice:400,baseMaxPrice:500});
+        G.inventory.push({id:'boss_ammo_'+Date.now(),itemId:'bm_ammo_ak',name:'Đạn AK 7.62x39 (300 viên) — Quà Trùm',icon:'📦',boughtPrice:0,tier:'tech',recyclePoints:50,baseMinPrice:400,baseMaxPrice:500,source:'blackmarket',obtainedAt:Date.now()});
         saveGame(false); updateUI();
         if (document.getElementById('panel-inventory').classList.contains('active')) renderInventory();
         showNotif('📦 Nhận 300 viên đạn từ Ông Trùm!');
@@ -531,7 +531,7 @@ function doBossBuy(idx) {
   if(G.money<item.currentPrice){termPrint('err',`Không đủ tiền! Cần $${item.currentPrice.toFixed(2)}, có ${fmt(G.money)}`);return;}
   if(G.inventory.length>=G.invMaxSlots){termPrint('err','Kho đầy!');return;}
   G.money-=item.currentPrice;
-  G.inventory.push({id:'boss_item_'+Date.now(),itemId:item.id,name:item.name,icon:item.icon,boughtPrice:item.currentPrice,tier:'tech',recyclePoints:Math.floor(item.basePrice/10),baseMinPrice:item.basePrice*0.8,baseMaxPrice:item.basePrice*1.5});
+  G.inventory.push({id:'boss_item_'+Date.now(),itemId:item.id,name:item.name,icon:item.icon,boughtPrice:item.currentPrice,tier:'tech',recyclePoints:Math.floor(item.basePrice/10),baseMinPrice:item.basePrice*0.8,baseMaxPrice:item.basePrice*1.5,source:'blackmarket',obtainedAt:Date.now()});
   termPrint('success',`[OK] ${item.icon} ${item.name} → kho! (-$${item.currentPrice.toFixed(2)})`);
   cat.splice(idx,1); saveGame(false); updateUI();
   if(document.getElementById('panel-inventory').classList.contains('active')) renderInventory();
@@ -1659,6 +1659,8 @@ function doBuy(idx) {
         recyclePoints: Math.floor(item.basePrice / 10),
         baseMinPrice: item.basePrice * 0.8,
         baseMaxPrice: item.basePrice * 1.5,
+        source: 'blackmarket',
+        obtainedAt: Date.now(),
       });
       termPrint('success', `[OK] Giao dịch thành công!`);
       termPrint('success', `     ${item.icon} ${item.name} → 🎒 Kho đồ`);
@@ -1935,7 +1937,11 @@ function _gameLoop(now) {
       G.money             = Math.min(G.money + earned, 999e12);
       G.totalEarned      += earned;
       G.playedSeconds    += dt;
-      G.valueMultiplier   = 1.0 * Math.pow(1 + 0.01 / 60, G.playedSeconds);
+      // Anti-inflation: soft-capped sqrt growth, max 10x after ~100h
+      // Formula: 1 + 4*sqrt(t/72000), capped at 10
+      // 1h≈1.9x | 5h≈3x | 10h≈3.8x | 24h≈5.4x | 50h≈7.3x | 100h≈10x(cap)
+      const _rawVM = 1 + 4 * Math.sqrt(G.playedSeconds / 72000);
+      G.valueMultiplier = Math.min(_rawVM, 10) * (G.matBonuses && G.matBonuses.valuePumpMult || 1);
     }
 
     _progVal = (_progVal + dt / 10) % 1;
@@ -1954,4 +1960,306 @@ function _gameLoop(now) {
 // Load saved FPS before starting loop
 loadFpsTarget();
 requestAnimationFrame(_gameLoop);
+
+
+// ╔═══════════════════════════════════════════════════════════════════════╗
+// ║  FacOS — DESKTOP ENVIRONMENT                                         ║
+// ║  Apps: Terminal · FacChat · FacShop                                  ║
+// ╚═══════════════════════════════════════════════════════════════════════╝
+
+let _facosActiveApp = null;
+
+// ── Clock ─────────────────────────────────────────────────────────────
+function _facosTickClock() {
+  const el = document.getElementById('facos-clock');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+}
+setInterval(_facosTickClock, 10000);
+_facosTickClock();
+
+// ── App open/close ──────────────────────────────────────────────────────
+function facosOpenApp(appId) {
+  // Hide all windows
+  document.querySelectorAll('.facos-window').forEach(w => w.style.display = 'none');
+  document.querySelectorAll('.facos-dock-item').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.facos-dock-dot').forEach(d => d.style.display = 'none');
+
+  const win  = document.getElementById('facos-win-' + appId);
+  const dock = document.getElementById('dock-' + appId);
+  const dot  = document.getElementById('dot-' + appId);
+  if (!win) return;
+
+  win.style.display = 'flex';
+  win.style.flexDirection = 'column';
+  if (dock) dock.classList.add('active');
+  if (dot)  dot.style.display = 'block';
+
+  _facosActiveApp = appId;
+
+  // Update top-bar app name
+  const names = { terminal:'Terminal', chat:'FacChat', shop:'FacShop' };
+  const nameEl = document.getElementById('facos-active-app-name');
+  if (nameEl) nameEl.textContent = names[appId] || appId;
+
+  // On open hooks
+  if (appId === 'chat')  { initFacChat();  }
+  if (appId === 'shop')  { renderFacShop(); }
+  if (appId === 'terminal') {
+    // re-focus terminal input
+    setTimeout(function(){ const inp=document.getElementById('terminal-input'); if(inp) inp.focus(); }, 100);
+  }
+}
+
+function facosCloseApp(appId) {
+  const win  = document.getElementById('facos-win-' + appId);
+  const dock = document.getElementById('dock-' + appId);
+  const dot  = document.getElementById('dot-' + appId);
+  if (win)  win.style.display  = 'none';
+  if (dock) dock.classList.remove('active');
+  if (dot)  dot.style.display  = 'none';
+  if (_facosActiveApp === appId) _facosActiveApp = null;
+  const nameEl = document.getElementById('facos-active-app-name');
+  if (nameEl) nameEl.textContent = '';
+}
+
+// Auto-open terminal on first computer tab visit
+function initFacOsDesktop() {
+  _facosTickClock();
+  if (!_facosActiveApp) facosOpenApp('terminal');
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════╗
+// ║  FacChat — AI Chat Application                                       ║
+// ╚═══════════════════════════════════════════════════════════════════════╝
+
+const FACCHAT_CHANNELS = {
+  general: [
+    { user:'factory_bot', avatar:'🤖', text:'Chào mừng đến #general! Đây là kênh chính của FacFactory.' },
+    { user:'user_anon47', avatar:'👤', text:'có ai biết cách farm tiền nhanh không?' },
+    { user:'mr_invest',   avatar:'💼', text:'Chơi chứng khoán trong game. Rate khá ổn.' },
+    { user:'crypto_king', avatar:'🪙', text:'Mua token rồi sell lại. Đơn giản vậy thôi.' },
+    { user:'factory_bot', avatar:'🤖', text:'Nhớ mua máy móc tier cao để tăng income nhé!' },
+  ],
+  trading: [
+    { user:'trader_x',    avatar:'📈', text:'Vừa mua xong lô Titanium giá thấp. Sắp lên rồi.' },
+    { user:'mr_invest',   avatar:'💼', text:'Thị trường biến động. Cẩn thận với Rhodium.' },
+    { user:'whale_99',    avatar:'🐳', text:'Tao vừa dump 500 Unobtainium. Mua vào đi :)' },
+    { user:'trader_x',    avatar:'📈', text:'Đừng nghe whale nó topping out rồi.' },
+    { user:'analysis_ai', avatar:'🧠', text:'Theo phân tích, Epic metals sẽ tăng 30% tuần tới.' },
+  ],
+  news: [
+    { user:'news_bot',    avatar:'📰', text:'[BREAKING] Thuế carbon mới áp dụng từ hôm nay.' },
+    { user:'news_bot',    avatar:'📰', text:'[UPDATE] Factory OS v3 ra mắt — mở khóa 5 vendor mới.' },
+    { user:'news_bot',    avatar:'📰', text:'[MARKET] Giá vàng đạt đỉnh lịch sử $2,500/oz.' },
+    { user:'news_bot',    avatar:'📰', text:'[ALERT] Cảnh sát đang điều tra black market. Cẩn thận!' },
+    { user:'news_bot',    avatar:'📰', text:'[TECH] Einsteinium được tổng hợp thành công tại lab.' },
+  ],
+  secret: [
+    { user:'shadow_user', avatar:'🕶', text:'...ai đang nghe không?' },
+    { user:'anonymous',   avatar:'👁', text:'Tao biết cách bypass thuế. DM tao.' },
+    { user:'shadow_user', avatar:'🕶', text:'Có vendor mới ẩn. Gõ: call_to(void.onion)' },
+    { user:'null_user',   avatar:'❓', text:'████ ██ ███████ ████.' },
+    { user:'anonymous',   avatar:'👁', text:'Đừng tin news_bot. Nó bị kiểm soát.' },
+  ],
+  dm_shadow: [
+    { user:'BIG_SHADOW',  avatar:'🦁', text:'Mày nhắn tin qua đây hả. Ổn đó. Cẩn thận FBI.' },
+    { user:'BIG_SHADOW',  avatar:'🦁', text:'Tao có hàng mới nếu mày cần. Terminal đi.' },
+  ],
+  dm_broker: [
+    { user:'Môi Giới',    avatar:'🤝', text:'Chào! Tôi chuyên tư vấn đầu tư. Cần giúp gì không?' },
+    { user:'Môi Giới',    avatar:'🤝', text:'Thị trường token đang nóng. Đây là cơ hội tốt.' },
+  ],
+};
+
+let _chatChannel = 'general';
+let _chatHistory = {}; // per-channel user messages
+
+function initFacChat() {
+  switchChatChannel('general', document.querySelector('.facchat-channel'));
+}
+
+function switchChatChannel(ch, btn) {
+  _chatChannel = ch;
+  // Update active tab
+  document.querySelectorAll('.facchat-channel').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Update placeholder
+  const inp = document.getElementById('facchat-input');
+  if (inp) inp.placeholder = 'Nhắn tin #' + ch + '...';
+  renderFacChatMessages();
+}
+
+function renderFacChatMessages() {
+  const box = document.getElementById('facchat-messages');
+  if (!box) return;
+  const base = FACCHAT_CHANNELS[_chatChannel] || [];
+  const userMsgs = _chatHistory[_chatChannel] || [];
+  const all = [...base, ...userMsgs];
+  box.innerHTML = all.map(function(m) {
+    return '<div class="facchat-msg">'
+      + '<span class="facchat-avatar">' + m.avatar + '</span>'
+      + '<div><span class="facchat-username">' + m.user + '</span>'
+      + '<span class="facchat-text">' + m.text + '</span></div>'
+      + '</div>';
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendFacChat() {
+  const inp = document.getElementById('facchat-input');
+  if (!inp || !inp.value.trim()) return;
+  const text = inp.value.trim();
+  inp.value = '';
+  if (!_chatHistory[_chatChannel]) _chatHistory[_chatChannel] = [];
+  _chatHistory[_chatChannel].push({ user:'Bạn', avatar:'😊', text });
+  renderFacChatMessages();
+  // AI reply after short delay
+  setTimeout(function() {
+    const replies = {
+      general:['Thú vị!','Đúng rồi đó.','Hmm, tao cần suy nghĩ.','Oke oke.','👍'],
+      trading:['Tao đang theo dõi.','Cẩn thận leverage cao.','Đồng ý. Hold thôi.','Sell 50% đi an toàn hơn.'],
+      news:['Thông tin quan trọng!','Cảm ơn đã chia sẻ.','[Bot đang xử lý...]','Đang cập nhật...'],
+      secret:['...','Shh.','Đừng nói to.','████'],
+      dm_shadow:['...tao nghe.','Oke. Tao sẽ liên lạc qua Terminal.','Đừng nhắn số tiền qua đây.'],
+      dm_broker:['Để tôi phân tích cho bạn!','Cơ hội tốt đấy!','Tôi tư vấn miễn phí lần đầu.'],
+    };
+    const pool = replies[_chatChannel] || ['ok'];
+    const r = pool[Math.floor(Math.random()*pool.length)];
+    const bots = {general:'factory_bot',trading:'analysis_ai',news:'news_bot',secret:'anonymous',dm_shadow:'BIG_SHADOW',dm_broker:'Môi Giới'};
+    const avts = {general:'🤖',trading:'🧠',news:'📰',secret:'👁',dm_shadow:'🦁',dm_broker:'🤝'};
+    _chatHistory[_chatChannel].push({ user: bots[_chatChannel]||'Bot', avatar: avts[_chatChannel]||'🤖', text: r });
+    renderFacChatMessages();
+  }, 600 + Math.random()*800);
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════╗
+// ║  FacShop — Sàn Thương Mại Điện Tử                                   ║
+// ╚═══════════════════════════════════════════════════════════════════════╝
+
+const FACSHOP_ITEMS = [
+  // ── LUXURY ──────────────────────────────────────────────────────────
+  { id:'fs_rolex',      name:'Đồng Hồ Rolex Daytona Vàng 18K',      icon:'⌚', cat:'luxury',  basePrice:85000,        desc:'Vàng 18K, mặt số kim cương, phiên bản giới hạn.' },
+  { id:'fs_herm',       name:'Túi Hermès Birkin Diamond',            icon:'👜', cat:'luxury',  basePrice:280000,       desc:'Da cá sấu, khóa kim cương, 1/1 thế giới.' },
+  { id:'fs_jet',        name:'Máy Bay Riêng Gulf Stream G700',       icon:'✈️', cat:'luxury',  basePrice:75000000,     desc:'Phòng ngủ, phòng tắm, bay thẳng 14,000km.' },
+  { id:'fs_yacht',      name:'Du Thuyền Mega-Yacht 90m',             icon:'🛥️', cat:'luxury',  basePrice:120000000,    desc:'Helipad, hồ bơi, 12 phòng VIP, đầu bếp riêng.' },
+  { id:'fs_diamond',    name:'Kim Cương Hope Blue 45.52 Carat',      icon:'💎', cat:'luxury',  basePrice:350000000,    desc:'Kim cương xanh huyền thoại, 1 viên duy nhất.' },
+  { id:'fs_wine',       name:'Rượu Petrus 1945 (thùng 12 chai)',     icon:'🍷', cat:'luxury',  basePrice:2400000,      desc:'Năm rượu huyền thoại. Bộ sưu tập cực phẩm.' },
+  { id:'fs_pen',        name:'Bút Montblanc Rồng Vàng Edition',      icon:'✒️', cat:'luxury',  basePrice:180000,       desc:'Vàng 18K, ruby tự nhiên, giới hạn 88 chiếc.' },
+
+  // ── TECH ────────────────────────────────────────────────────────────
+  { id:'fs_iphone',     name:'iPhone Ultra Pro Max Diamond',         icon:'📱', cat:'tech',    basePrice:25000,        desc:'Vỏ vàng 24K, màn hình sapphire, 2TB storage.' },
+  { id:'fs_macpro',     name:'Mac Studio Extreme (192GB RAM)',        icon:'🖥️', cat:'tech',    basePrice:32000,        desc:'M4 Ultra chip, 192GB unified memory, 8TB SSD.' },
+  { id:'fs_server',     name:'Server Farm 10,000 GPU H100',          icon:'🖧',  cat:'tech',    basePrice:500000000,    desc:'Data center quy mô lớn, băng thông 100Gbps.' },
+  { id:'fs_satellite',  name:'Vệ Tinh Viễn Thông LEO',              icon:'🛰️', cat:'tech',    basePrice:2000000000,   desc:'Quỹ đạo thấp, phủ sóng 1/3 trái đất.' },
+  { id:'fs_quantum',    name:'Máy Tính Lượng Tử 1000-Qubit',        icon:'⚛️', cat:'tech',    basePrice:50000000000,  desc:'Xử lý thuật toán mà siêu máy tính thường không thể.' },
+  { id:'fs_vr',         name:'FacVR Pro — Headset 16K/Eye',          icon:'🥽', cat:'tech',    basePrice:14000,        desc:'16K per eye, haptic suit tích hợp, 120fps.' },
+
+  // ── VEHICLE ─────────────────────────────────────────────────────────
+  { id:'fs_bugatti',    name:'Bugatti Chiron Super Sport 300+',      icon:'🏎️', cat:'vehicle', basePrice:5200000,      desc:'1600hp, 300+ mph, giới hạn 30 xe toàn cầu.' },
+  { id:'fs_lambo',      name:'Lamborghini Revuelto Gold Edition',    icon:'🚗', cat:'vehicle', basePrice:1800000,      desc:'V12 hybrid, 1015hp, mạ vàng 24K toàn thân.' },
+  { id:'fs_tank',       name:'Xe Tăng Chiến Đấu M1A2 SEP V3',      icon:'🪖', cat:'vehicle', basePrice:8500000,      desc:'Giáp composite, pháo 120mm, mua được trên FacShop.' },
+  { id:'fs_sub',        name:'Tàu Ngầm Cá Nhân DeepSea 500m',       icon:'🚢', cat:'vehicle', basePrice:25000000,     desc:'Lặn sâu 500m, oxy 72h, sonar tích hợp.' },
+  { id:'fs_heli',       name:'Trực Thăng Sikorsky S-92 VIP',        icon:'🚁', cat:'vehicle', basePrice:18000000,     desc:'Cabin VIP full-leather, hành trình 1,000km.' },
+  { id:'fs_rocket',     name:'Tên Lửa Tư Nhân Starship-class',      icon:'🚀', cat:'vehicle', basePrice:5000000000,   desc:'100 tấn tải trọng lên quỹ đạo thấp, tái sử dụng.' },
+
+  // ── ESTATE ──────────────────────────────────────────────────────────
+  { id:'fs_penthouse',  name:'Penthouse Monaco (2000m²)',            icon:'🏙️', cat:'estate',  basePrice:150000000,    desc:'View toàn Monaco, hồ bơi vô cực, 8 phòng ngủ.' },
+  { id:'fs_island',     name:'Đảo Tư Nhân Caribbean 50 Hectare',    icon:'🏝️', cat:'estate',  basePrice:800000000,    desc:'Bãi biển riêng, runway, resort 5 sao, 100% solar.' },
+  { id:'fs_castle',     name:'Lâu Đài Pháp Thế Kỷ 17 (500 phòng)', icon:'🏰', cat:'estate',  basePrice:1200000000,   desc:'Di tích lịch sử, 200 hectare vườn, bảo tàng riêng.' },
+  { id:'fs_skyscraper', name:'Tòa Nhà 100 Tầng Trung Tâm NYC',     icon:'🏢', cat:'estate',  basePrice:3000000000,   desc:'Mix-use: văn phòng, hotel, penthouse. ROI cao.' },
+  { id:'fs_spacest',    name:'Station Vũ Trụ Quỹ Đạo Thấp',        icon:'🌌', cat:'estate',  basePrice:50000000000,  desc:'6 mô-đun, 12 phi hành gia, thí nghiệm liên tục.' },
+
+  // ── ART ─────────────────────────────────────────────────────────────
+  { id:'fs_monalisa',   name:'Bản Sao Mona Lisa (được chứng nhận)', icon:'🖼️', cat:'art',     basePrice:2000000,      desc:'Bản sao museum-quality, chứng chỉ Louvre.' },
+  { id:'fs_nft_rare',   name:'FacOS Genesis NFT #001',              icon:'🎨', cat:'art',     basePrice:5000000,      desc:'1/1 NFT gốc của FacOS, quyền sở hữu on-chain.' },
+  { id:'fs_sculpture',  name:'Tượng Đồng Rodin (bản gốc)',          icon:'🗿', cat:'art',     basePrice:18000000,     desc:'Từ bộ sưu tập tư nhân Châu Âu, có giấy tờ đầy đủ.' },
+
+  // ── FINANCE ─────────────────────────────────────────────────────────
+  { id:'fs_gold_ton',   name:'Vàng Thỏi 1 Tấn (999.9)',            icon:'🏅', cat:'finance', basePrice:65000000,     desc:'999.9 tinh khiết, lưu trữ tại vault Thụy Sĩ.' },
+  { id:'fs_bond',       name:'Trái Phiếu Chính Phủ $1B',           icon:'📜', cat:'finance', basePrice:1000000000,   desc:'Lãi suất 5%/năm, bảo đảm chính phủ AAA.' },
+  { id:'fs_hedge',      name:'Cổ Phần Quỹ Hedge $10B AUM',         icon:'📊', cat:'finance', basePrice:500000000,    desc:'Top 1% performance 10 năm liên tiếp.' },
+  { id:'fs_crypto_miner','name':'Trại Mining Bitcoin 10MW',         icon:'⛏️', cat:'finance', basePrice:80000000,     desc:'10,000 ASIC S21, hợp đồng điện giá thấp 3 năm.' },
+
+  // ── RARE ────────────────────────────────────────────────────────────
+  { id:'fs_alien',      name:'Thiên Thạch Sao Hỏa 50kg (xác nhận)',icon:'☄️', cat:'rare',    basePrice:250000000,    desc:'Được NASA xác nhận. Cực kỳ hiếm, 1 trong 3 mảnh.' },
+  { id:'fs_t_rex',      name:'Hộp Sọ T-Rex Hoàn Chỉnh 70M Năm',   icon:'🦖', cat:'rare',    basePrice:32000000,     desc:'Bảo tồn 95%, khai quật Montana 2019.' },
+  { id:'fs_unicorn',    name:'Startup Unicorn (100% cổ phần)',       icon:'🦄', cat:'rare',    basePrice:1000000000,   desc:'Fintech đang tăng trưởng 300%/năm, chưa IPO.' },
+  { id:'fs_country',    name:'Quyền Khai Thác Khoáng Sản Quốc Gia',icon:'🌍', cat:'rare',    basePrice:50000000000,  desc:'50 năm, toàn bộ tài nguyên dưới lòng đất 1 quốc gia.' },
+  { id:'fs_blackhole',  name:'Dữ Liệu Nghiên Cứu Hố Đen (độc quyền)',icon:'🕳️',cat:'rare',   basePrice:100000000000, desc:'Dữ liệu từ kính thiên văn Event Horizon, chỉ 1 bản.' },
+];
+
+let _facshopCart = [];
+
+function renderFacShop() {
+  const grid    = document.getElementById('facshop-grid');
+  const search  = (document.getElementById('facshop-search')  ||{}).value||'';
+  const cat     = (document.getElementById('facshop-cat')     ||{}).value||'all';
+  if (!grid) return;
+
+  let items = FACSHOP_ITEMS;
+  if (cat !== 'all') items = items.filter(i => i.cat === cat);
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    items = items.filter(i => i.name.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
+  }
+
+  // Dynamic price (±15% random each render cycle, seeded by session)
+  grid.innerHTML = items.map(function(item) {
+    const variance = 0.85 + Math.random()*0.30;
+    const price    = Math.round(item.basePrice * variance);
+    const priceStr = typeof fmt==='function' ? fmt(price) : ('$'+price.toLocaleString());
+    const canBuy   = (typeof G!=='undefined') && G.money >= price;
+    return '<div class="facshop-card">'
+      + '<div class="facshop-item-icon">' + item.icon + '</div>'
+      + '<div class="facshop-item-name">' + item.name + '</div>'
+      + '<div class="facshop-item-desc">' + item.desc + '</div>'
+      + '<div class="facshop-item-price">' + priceStr + '</div>'
+      + '<button class="facshop-buy-btn' + (canBuy?'':' disabled') + '" onclick="buyFacShopItem(\'' + item.id + '\',' + price + ')">'  
+      + (canBuy ? '🛒 Mua ngay' : '💸 Không đủ tiền') + '</button>'
+      + '</div>';
+  }).join('');
+
+  if (items.length === 0) {
+    grid.innerHTML = '<div style="text-align:center;color:#4b5563;padding:40px;font-size:13px">Không tìm thấy sản phẩm 🔍</div>';
+  }
+}
+
+function buyFacShopItem(id, price) {
+  if (typeof G === 'undefined' || G.money < price) {
+    if (typeof showError==='function') showError('💸 Không đủ tiền!');
+    return;
+  }
+  const item = FACSHOP_ITEMS.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm('🛒 Mua ' + item.name + '\nGiá: ' + (typeof fmt==='function'?fmt(price):price) + '?')) return;
+
+  G.money -= price;
+  if (typeof G.totalSpent !== 'undefined') G.totalSpent = (G.totalSpent||0) + price;
+
+  // Add to inventory
+  const tierMap = { luxury:'super', tech:'tech', vehicle:'tech', estate:'super', art:'super', finance:'super', rare:'super' };
+  if (typeof G.inventory !== 'undefined' && G.inventory.length < (G.invMaxSlots||50)) {
+    G.inventory.push({
+      id: 'fs_' + id + '_' + Date.now(),
+      itemId: id,
+      name: item.name,
+      icon: item.icon,
+      tier: tierMap[item.cat] || 'super',
+      boughtPrice: price,
+      recyclePoints: Math.floor(price / 100000),
+      baseMinPrice: Math.round(item.basePrice * 0.7),
+      baseMaxPrice: Math.round(item.basePrice * 1.3),
+      source: 'market',
+      obtainedAt: Date.now(),
+    });
+  }
+
+  if (typeof showNotif==='function') showNotif('🛍️ Đã mua ' + item.icon + ' ' + item.name + '!');
+  if (typeof updateUI==='function')  updateUI();
+  if (typeof saveGame==='function')  saveGame(false);
+  if (typeof renderInventory==='function') renderInventory();
+  renderFacShop(); // refresh prices
+}
 

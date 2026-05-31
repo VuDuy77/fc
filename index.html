@@ -156,6 +156,7 @@
     <span class="titlebar-left"><i class="ti ti-building-factory-2" aria-hidden="true"></i> Factory</span>
     <span class="titlebar-right" style="display:flex;align-items:center;gap:8px">
       <span id="hdr-token" style="color:#00f5ff;font-size:13px;font-weight:700;display:none">🔮 <span id="hdr-token-val">0</span></span>
+      <span id="hdr-key" style="color:#ffd700;font-size:13px;font-weight:700;display:none">🗝️ <span id="hdr-key-val">0</span></span>
       <span id="hdr-money">$0.000</span>
     </span>
   </div>
@@ -181,6 +182,7 @@
       <div class="main-tab" onclick="switchTab('updatelog')" id="tab-updatelog">📋 Update Log</div>
       <div class="main-tab" onclick="switchTab('rank')" id="tab-rank">🏆 Rank</div>
       <div class="main-tab" onclick="switchTab('casino')" id="tab-casino">🎮 Trò Chơi</div>
+      <div class="main-tab" onclick="switchTab('banner')" id="tab-banner">🗝️ Banner</div>
     </div>
     <button class="tab-scroll-btn" onclick="scrollTabs(120)" title="Cuộn phải">&#8250;</button>
   </div>
@@ -392,85 +394,210 @@
     </div>
 
     <!-- COMPUTER -->
-    <div class="panel" id="panel-computer" style="padding:12px">
-      <!-- Internet Status Bar -->
-      <div id="inet-status-bar" class="inet-status-bar offline" style="margin-bottom:10px">
-        <span>📡 Internet: <span id="inet-status-text">NO CONNECTION</span></span>
-        <span id="inet-timer-text" style="font-size:10px;color:#4b5563"></span>
-      </div>
-      <!-- Internet Package Modal -->
-      <div class="inet-modal" id="inet-modal" style="display:none">
-        <div class="inet-box">
-          <div class="inet-title">📡 INTERNET PACKAGES</div>
-          <div class="inet-sub">// buy_internet — select your plan</div>
-          <div class="inet-pkg" id="pkg-free" onclick="selectPkg('free')" style="border-color:#374151">
-            <div class="inet-pkg-name" style="color:#9ca3af">🆓 FREE PLAN</div>
-            <div class="inet-pkg-price" style="color:#4ade80">$0.00 / 5 phút <span style="font-size:10px;color:#4b5563">(1 lần/ngày)</span></div>
-            <div class="inet-pkg-desc">50% chance to connect • Không mua được thêm</div>
-            <span class="inet-pkg-badge" style="background:#1f2937;color:#9ca3af">50%</span>
+    <div class="panel" id="panel-computer" style="padding:0;overflow:hidden;border-radius:14px">
+
+      <!-- ╔══════════════════════════════════════════════════════════╗
+           ║           FacOS — DESKTOP ENVIRONMENT                  ║
+           ╚══════════════════════════════════════════════════════════╝ -->
+      <div id="facos-desktop">
+
+        <!-- Top Menu Bar -->
+        <div class="facos-menubar">
+          <div class="facos-menubar-left">
+            <span class="facos-logo">🏭</span>
+            <span class="facos-os-name">FacOS</span>
+            <span id="facos-active-app-name" class="facos-active-app"></span>
           </div>
-          <div class="inet-pkg" id="pkg-basic" onclick="selectPkg('basic')">
-            <div class="inet-pkg-name">🔵 BASIC</div>
-            <div class="inet-pkg-price">$1.50 / 2 minutes</div>
-            <div class="inet-pkg-desc">60% chance to connect to vendors</div>
-            <span class="inet-pkg-badge" style="background:#1e2f4a;color:#60a5fa">60%</span>
-          </div>
-          <div class="inet-pkg" id="pkg-balance" onclick="selectPkg('balance')">
-            <div class="inet-pkg-name">🟢 BALANCE</div>
-            <div class="inet-pkg-price">$5.00 / 2 minutes</div>
-            <div class="inet-pkg-desc">80% chance to connect to vendors</div>
-            <span class="inet-pkg-badge" style="background:#1e3a2a;color:#4ade80">80%</span>
-          </div>
-          <div class="inet-pkg best" id="pkg-speed" onclick="selectPkg('speed')">
-            <div class="inet-pkg-name">⚡ SPEED</div>
-            <div class="inet-pkg-price">$10.00 / 3 minutes</div>
-            <div class="inet-pkg-desc">100% connect rate + FREE 1 bargain bonus</div>
-            <span class="inet-pkg-badge" style="background:#3a2a00;color:#fbbf24">100% ★</span>
-          </div>
-          <div style="font-size:11px;color:#374151;margin:8px 0 4px;text-align:center">
-            Select quantity: <span id="inet-qty-display" style="color:#4ade80;font-weight:bold">1x</span>
-          </div>
-          <div style="display:flex;gap:6px;justify-content:center;margin-bottom:4px">
-            <button onclick="setInetQty(1)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">1x</button>
-            <button onclick="setInetQty(2)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">2x</button>
-            <button onclick="setInetQty(3)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">3x</button>
-            <button onclick="setInetQty(5)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">5x</button>
-            <button onclick="setInetQty(10)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">10x</button>
-          </div>
-          <div id="inet-total-cost" style="text-align:center;font-size:12px;color:#fbbf24;margin-bottom:8px"></div>
-          <div class="inet-actions">
-            <button class="inet-buy-btn" id="inet-confirm-btn" onclick="confirmBuyInternet()">[ PURCHASE ]</button>
-            <button class="inet-cancel-btn" onclick="closeInetModal()">[ CANCEL ]</button>
+          <div class="facos-menubar-right">
+            <span id="facos-inet-dot" class="facos-inet-dot offline" title="Internet">●</span>
+            <span id="facos-clock" class="facos-clock">00:00</span>
           </div>
         </div>
-      </div>
-      <div class="terminal-wrap" id="terminal-wrap">
-        <div class="terminal-titlebar">
-          <div class="terminal-dot" style="background:#ff5f57"></div>
-          <div class="terminal-dot" style="background:#febc2e"></div>
-          <div class="terminal-dot" style="background:#28c840"></div>
-          <span style="font-size:12px;color:#4b5563;margin-left:8px;font-family:monospace">FACTORY-OS v2.0 — Terminal</span>
-          <span style="margin-left:auto;font-size:11px;color:#1f3a1f" id="term-conn-status">● OFFLINE</span>
+
+        <!-- Desktop Area -->
+        <div class="facos-desktop-area" id="facos-desktop-area">
+
+          <!-- Wallpaper grid lines (CSS only) -->
+
+          <!-- App Windows (hidden by default, shown when app opened) -->
+
+          <!-- ── INTERNET STATUS (floating, moved inside desktop) ── -->
+          <div id="inet-status-bar" class="inet-status-bar offline facos-inet-bar">
+            <span>📡 <span id="inet-status-text">NO CONNECTION</span></span>
+            <span id="inet-timer-text" style="font-size:10px;color:#4b5563"></span>
+          </div>
+
+          <!-- ── INTERNET PACKAGE MODAL ── -->
+          <div class="inet-modal" id="inet-modal" style="display:none">
+            <div class="inet-box">
+              <div class="inet-title">📡 INTERNET PACKAGES</div>
+              <div class="inet-sub">// buy_internet — select your plan</div>
+              <div class="inet-pkg" id="pkg-free" onclick="selectPkg('free')" style="border-color:#374151">
+                <div class="inet-pkg-name" style="color:#9ca3af">🆓 FREE PLAN</div>
+                <div class="inet-pkg-price" style="color:#4ade80">$0.00 / 5 phút <span style="font-size:10px;color:#4b5563">(1 lần/ngày)</span></div>
+                <div class="inet-pkg-desc">50% chance to connect • Không mua được thêm</div>
+                <span class="inet-pkg-badge" style="background:#1f2937;color:#9ca3af">50%</span>
+              </div>
+              <div class="inet-pkg" id="pkg-basic" onclick="selectPkg('basic')">
+                <div class="inet-pkg-name">🔵 BASIC</div>
+                <div class="inet-pkg-price">$1.50 / 2 minutes</div>
+                <div class="inet-pkg-desc">60% chance to connect to vendors</div>
+                <span class="inet-pkg-badge" style="background:#1e2f4a;color:#60a5fa">60%</span>
+              </div>
+              <div class="inet-pkg" id="pkg-balance" onclick="selectPkg('balance')">
+                <div class="inet-pkg-name">🟢 BALANCE</div>
+                <div class="inet-pkg-price">$5.00 / 2 minutes</div>
+                <div class="inet-pkg-desc">80% chance to connect to vendors</div>
+                <span class="inet-pkg-badge" style="background:#1e3a2a;color:#4ade80">80%</span>
+              </div>
+              <div class="inet-pkg best" id="pkg-speed" onclick="selectPkg('speed')">
+                <div class="inet-pkg-name">⚡ SPEED</div>
+                <div class="inet-pkg-price">$10.00 / 3 minutes</div>
+                <div class="inet-pkg-desc">100% connect rate + FREE 1 bargain bonus</div>
+                <span class="inet-pkg-badge" style="background:#3a2a00;color:#fbbf24">100% ★</span>
+              </div>
+              <div style="font-size:11px;color:#374151;margin:8px 0 4px;text-align:center">
+                Select quantity: <span id="inet-qty-display" style="color:#4ade80;font-weight:bold">1x</span>
+              </div>
+              <div style="display:flex;gap:6px;justify-content:center;margin-bottom:4px">
+                <button onclick="setInetQty(1)"  style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">1x</button>
+                <button onclick="setInetQty(2)"  style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">2x</button>
+                <button onclick="setInetQty(3)"  style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">3x</button>
+                <button onclick="setInetQty(5)"  style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">5x</button>
+                <button onclick="setInetQty(10)" style="padding:4px 10px;background:#111827;border:1px solid #1f2937;color:#9ca3af;border-radius:5px;cursor:pointer;font-family:monospace;font-size:12px">10x</button>
+              </div>
+              <div id="inet-total-cost" style="text-align:center;font-size:12px;color:#fbbf24;margin-bottom:8px"></div>
+              <div class="inet-actions">
+                <button class="inet-buy-btn" id="inet-confirm-btn" onclick="confirmBuyInternet()">[ PURCHASE ]</button>
+                <button class="inet-cancel-btn" onclick="closeInetModal()">[ CANCEL ]</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════════════════════════════════════════════════════
+               APP WINDOWS
+               ══════════════════════════════════════════════════ -->
+
+          <!-- APP: Terminal -->
+          <div class="facos-window" id="facos-win-terminal" style="display:none">
+            <div class="facos-titlebar">
+              <div class="facos-win-dots">
+                <span class="facos-dot red"   onclick="facosCloseApp('terminal')"></span>
+                <span class="facos-dot yellow"></span>
+                <span class="facos-dot green"></span>
+              </div>
+              <span class="facos-win-title">Terminal — FACTORY-OS</span>
+            </div>
+            <div class="facos-win-body terminal-win-body">
+              <div class="terminal-wrap" id="terminal-wrap" style="border:none;border-radius:0;margin:0">
+                <div class="terminal-titlebar" style="display:none"></div>
+                <div class="terminal-output" id="terminal-output"></div>
+                <div class="boss-choices-panel" id="boss-choices-panel">
+                  <div class="boss-choices-title">// Chọn câu trả lời — click hoặc gõ [say N]</div>
+                  <div class="boss-choices-grid" id="boss-choices-grid"></div>
+                </div>
+                <div class="terminal-input-row">
+                  <span class="terminal-prompt" id="term-prompt">root@factory:~$</span>
+                  <input class="terminal-input" id="terminal-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nhập lệnh..." />
+                </div>
+              </div>
+              <div style="padding:6px 10px;font-size:10px;color:#1f3a1f;line-height:1.8;background:#000">
+                <code style="color:#4ade80">call_to(url)</code> · <code style="color:#4ade80">tgn</code> · <code style="color:#4ade80">buy [n]</code> ·
+                <code style="color:#fbbf24">talk_to(url)</code> · <code style="color:#fbbf24">say [n]</code> ·
+                <code style="color:#4ade80">help</code> · <code style="color:#4ade80">buy_internet</code> · <code style="color:#4ade80">hangup</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- APP: FacChat -->
+          <div class="facos-window" id="facos-win-chat" style="display:none">
+            <div class="facos-titlebar" style="background:linear-gradient(135deg,#1a1a2e,#16213e)">
+              <div class="facos-win-dots">
+                <span class="facos-dot red" onclick="facosCloseApp('chat')"></span>
+                <span class="facos-dot yellow"></span>
+                <span class="facos-dot green"></span>
+              </div>
+              <span class="facos-win-title" style="color:#60a5fa">💬 FacChat</span>
+              <span style="margin-left:auto;font-size:10px;color:#22c55e">● Online</span>
+            </div>
+            <div class="facos-win-body" id="facchat-body" style="display:flex;flex-direction:column;height:360px">
+              <!-- Sidebar channels -->
+              <div style="display:flex;flex:1;overflow:hidden">
+                <div class="facchat-sidebar">
+                  <div class="facchat-server-icon">🏭</div>
+                  <div style="font-size:10px;color:#6b7280;margin:8px 4px 4px;font-weight:700;text-transform:uppercase">Kênh</div>
+                  <div class="facchat-channel active" onclick="switchChatChannel('general',this)"># general</div>
+                  <div class="facchat-channel" onclick="switchChatChannel('trading',this)"># trading</div>
+                  <div class="facchat-channel" onclick="switchChatChannel('news',this)"># tin-tức</div>
+                  <div class="facchat-channel" onclick="switchChatChannel('secret',this)"># bí-mật 🔒</div>
+                  <div style="font-size:10px;color:#6b7280;margin:12px 4px 4px;font-weight:700;text-transform:uppercase">DM</div>
+                  <div class="facchat-channel" onclick="switchChatChannel('dm_shadow',this)">👤 Big Shadow</div>
+                  <div class="facchat-channel" onclick="switchChatChannel('dm_broker',this)">👤 Môi Giới</div>
+                </div>
+                <!-- Chat area -->
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+                  <div class="facchat-messages" id="facchat-messages"></div>
+                  <div class="facchat-input-row">
+                    <input class="facchat-input" id="facchat-input" placeholder="Nhắn tin #general..." onkeydown="if(event.key==='Enter')sendFacChat()" />
+                    <button onclick="sendFacChat()" class="facchat-send-btn">➤</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- APP: FacShop (Sàn Thương Mại Điện Tử) -->
+          <div class="facos-window" id="facos-win-shop" style="display:none">
+            <div class="facos-titlebar" style="background:linear-gradient(135deg,#1a0a2e,#2d1b4e)">
+              <div class="facos-win-dots">
+                <span class="facos-dot red" onclick="facosCloseApp('shop')"></span>
+                <span class="facos-dot yellow"></span>
+                <span class="facos-dot green"></span>
+              </div>
+              <span class="facos-win-title" style="color:#a78bfa">🛍️ FacShop — Sàn TMĐT</span>
+              <span style="margin-left:auto" id="facshop-cart-badge"></span>
+            </div>
+            <div class="facos-win-body" id="facshop-body" style="height:400px;overflow-y:auto">
+              <!-- Search bar -->
+              <div class="facshop-searchbar">
+                <input id="facshop-search" class="facshop-search-input" placeholder="🔍 Tìm kiếm sản phẩm..." oninput="renderFacShop()" />
+                <select id="facshop-cat" class="facshop-cat-select" onchange="renderFacShop()">
+                  <option value="all">Tất cả</option>
+                  <option value="luxury">💎 Xa xỉ</option>
+                  <option value="tech">🖥 Công nghệ</option>
+                  <option value="vehicle">🚗 Xe cộ</option>
+                  <option value="estate">🏠 Bất động sản</option>
+                  <option value="art">🎨 Nghệ thuật</option>
+                  <option value="finance">💰 Tài chính</option>
+                  <option value="rare">✨ Hiếm</option>
+                </select>
+              </div>
+              <div id="facshop-grid" class="facshop-grid"></div>
+            </div>
+          </div>
+
+        </div><!-- end facos-desktop-area -->
+
+        <!-- ══ DOCK (Taskbar) ══ -->
+        <div class="facos-dock">
+          <div class="facos-dock-item" onclick="facosOpenApp('terminal')" title="Terminal" id="dock-terminal">
+            <span class="facos-dock-icon">🖥</span>
+            <span class="facos-dock-label">Terminal</span>
+            <span class="facos-dock-dot" id="dot-terminal" style="display:none"></span>
+          </div>
+          <div class="facos-dock-item" onclick="facosOpenApp('chat')" title="FacChat" id="dock-chat">
+            <span class="facos-dock-icon">💬</span>
+            <span class="facos-dock-label">FacChat</span>
+            <span class="facos-dock-dot" id="dot-chat" style="display:none"></span>
+          </div>
+          <div class="facos-dock-item" onclick="facosOpenApp('shop')" title="FacShop" id="dock-shop">
+            <span class="facos-dock-icon">🛍️</span>
+            <span class="facos-dock-label">FacShop</span>
+            <span class="facos-dock-dot" id="dot-shop" style="display:none"></span>
+          </div>
         </div>
-        <div class="terminal-output" id="terminal-output"></div>
-        <div class="boss-choices-panel" id="boss-choices-panel">
-          <div class="boss-choices-title">// Chọn câu trả lời — click hoặc gõ [say N]</div>
-          <div class="boss-choices-grid" id="boss-choices-grid"></div>
-        </div>
-        <div class="terminal-input-row">
-          <span class="terminal-prompt" id="term-prompt">root@factory:~$</span>
-          <input class="terminal-input" id="terminal-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nhập lệnh..." />
-        </div>
-      </div>
-      <div style="margin-top:8px;font-size:11px;color:#1f3a1f;line-height:1.8;padding:0 4px">
-        <span style="color:#374151">Vendor: </span>
-        <code style="color:#4ade80">call_to(url)</code> · <code style="color:#4ade80">tgn</code> · <code style="color:#4ade80">buy [n]</code>
-        &nbsp;|&nbsp;
-        <span style="color:#f59e0b">Boss: </span>
-        <code style="color:#fbbf24">talk_to(url)</code> · <code style="color:#fbbf24">say [n]</code> · <code style="color:#fbbf24">boss_buy [n]</code>
-        &nbsp;|&nbsp;
-        <code style="color:#4ade80">help</code> · <code style="color:#4ade80">buy_internet</code> · <code style="color:#4ade80">hangup</code> · <code style="color:#4ade80">clear</code>
-      </div>
+
+      </div><!-- end facos-desktop -->
     </div>
 
     <!-- VIP SHOP -->    <div class="panel" id="panel-vipshop">
@@ -795,6 +922,7 @@
 
     <!-- CASINO PANEL -->
     <div class="panel" id="panel-casino" style="padding:0"></div>
+    <div class="panel" id="panel-banner" style="padding:0;overflow-y:auto"></div>
 
     <!-- MATERIALS SHOP PANEL
          Spend dollars on permanent income-multiplier upgrades.
@@ -955,10 +1083,23 @@
 <script src="game-core.js"></script>
 <script src="game-bank.js"></script>
 <script src="game-market.js"></script>
+<!-- ═══ FACTORY GAME API CONFIG ═══════════════════════════════════════════
+     Dán URL Google Apps Script của bạn vào đây
+     Sau khi deploy Apps Script, copy URL và thay vào dưới đây
+     ════════════════════════════════════════════════════════════════════ -->
+<script>
+  // Thay URL bên dưới bằng URL Google Apps Script của bạn
+  var _FACTORY_API_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnSdRLHkW92xmeM74msEgtKVDXlY9oNePkV_V8Fgtimkl2VhOSS8JU0QSgNndUCfMqDTDkhHLV3hdyA24GkXkHPiReaXhxNDnVE8x6EEM03FeH0ZvkBnWZB-1NQxsdVpS2T7xxHDjppiZU4o7VX4e6UAq1Hg_0SsMKLFIu6ItF57NAcv8TKuOtWK2xPO1OpMlZDCkJGLJ3aJ_ZXwLpPqR_QVubpvUBUiCZ094S2sIilyoNSYNbnUaKAYT5DL3q5jzqpG4KaYNJMLgiSV8KNqvZXLhDtReg&lib=MbKVvUoDZ9Q7UEbFmlFC6Nq6dfO4Edo2b';
+  // Lưu vào localStorage để các file game sử dụng
+  if (_FACTORY_API_URL && _FACTORY_API_URL !== 'PASTE_YOUR_APPS_SCRIPT_URL_HERE') {
+    localStorage.setItem('factory_api_url', _FACTORY_API_URL);
+  }
+</script>
 <script src="game-computer.js"></script>
 <script src="game-lottery.js"></script>
 <script src="game-electricity.js"></script>
 <script src="game-skin.js"></script>
 <script src="game-ui.js"></script>
 <script src="game-casino.js"></script>
+<script src="game-banner.js"></script>
 </body></html>

@@ -8,7 +8,9 @@ const defaultState = () => ({
   slots: [{ machine:'begin0', earned:0 }, null, null, null, null],
   ownedSlots: 5,
   unlockedTiers: [],
-  wallet: { xu:0, gold:0, diamond:0, dark:0, ruby:0, rainbow:0, token:0, hexper:0 },
+  wallet: { xu:0, gold:0, diamond:0, dark:0, ruby:0, rainbow:0, token:0, hexper:0, key:0 },
+  // ═══ BANNER ═══
+  bannerStarterDone: false,
   // ═══ CASINO ═══
   casinoStats: { gamesPlayed:0, totalWon:0, totalLost:0, biggestWin:0, hexperEarned:0 },
   casinoLastSpinTime: 0,  // throttle wheel spin: 1 spin per 30s
@@ -27,7 +29,7 @@ const defaultState = () => ({
   factoryPlus: false,
   factoryPremium: false,
   // ═══ GIÁ TRỊ ĐỒNG TIỀN ═══
-  // valueMultiplier tăng 1%/phút (compound)
+  // valueMultiplier: tự động tính theo thời gian chơi (sqrt), tối đa 10x sau ~100h
   // Sau 1 phút: x1.01, sau 10 phút: x1.105, sau 1 giờ: x1.817, sau 1 ngày: x1138x
   valueMultiplier: 1.0,
   playedSeconds: 0,
@@ -53,6 +55,7 @@ const defaultState = () => ({
     lotteryLuckBonus: 0,   // flat bonus to lottery multipliers
     recycleBoost: 1.0,     // multiplier on recycle points earned
     powerEfficiency: 1.0,  // power drain rate multiplier (lower = slower drain)
+    valuePumpMult: 1.0,    // bonus multiplier from Value Pump upgrades (separate from time-based vm)
   },
   matPurchased: {},        // id → count purchased
   powerSeconds: 0,          // remaining power in seconds (0 = no power)
@@ -182,6 +185,8 @@ function parseLoadedData(s) {
       if (!p.boughtTokenBundles) p.boughtTokenBundles = [];
       if (!p.wallet.token) p.wallet.token = 0;
       if (!p.wallet.hexper) p.wallet.hexper = 0;
+      if (p.wallet.key === undefined) p.wallet.key = 0;
+      if (p.bannerStarterDone === undefined) p.bannerStarterDone = false;
       if (!p.casinoStats) p.casinoStats = { gamesPlayed:0, totalWon:0, totalLost:0, biggestWin:0, hexperEarned:0 };
       if (p.casinoLastSpinTime === undefined) p.casinoLastSpinTime = 0;
       if (p.casinoDailyBets === undefined) p.casinoDailyBets = 0;
@@ -189,7 +194,13 @@ function parseLoadedData(s) {
       if (!p.taxEvadeTickets) p.taxEvadeTickets = 0;
       if (!p.debtEvadeTickets) p.debtEvadeTickets = 0;
       if (!p.permanentSpeedInternet) p.permanentSpeedInternet = false;
-      if (!p.valueMultiplier || p.valueMultiplier < 1) p.valueMultiplier = 1.0;
+      // Migrate: clamp old exponential valueMultiplier; recalculate from playedSeconds
+      { const t = p.playedSeconds || 0;
+        const fromTime = Math.min(1 + 4 * Math.sqrt(t / 72000), 10);
+        // If saved value is way higher than expected (old formula), recalculate
+        if (!p.valueMultiplier || p.valueMultiplier < 1 || p.valueMultiplier > fromTime * 20) {
+          p.valueMultiplier = fromTime;
+        } }
       if (!p.playedSeconds) p.playedSeconds = 0;
       if (p.inetExpiry === undefined) p.inetExpiry = 0;
       if (!p.inetPackage) p.inetPackage = null;
@@ -223,6 +234,7 @@ function parseLoadedData(s) {
       if (p.matBonuses.lotteryLuckBonus === undefined) p.matBonuses.lotteryLuckBonus = defMat.lotteryLuckBonus;
       if (p.matBonuses.recycleBoost === undefined)     p.matBonuses.recycleBoost = defMat.recycleBoost;
       if (p.matBonuses.powerEfficiency === undefined)  p.matBonuses.powerEfficiency = defMat.powerEfficiency;
+      if (p.matBonuses.valuePumpMult === undefined)     p.matBonuses.valuePumpMult = defMat.valuePumpMult;
       if (!p.matPurchased) p.matPurchased = {};
       if (!p.loan) p.loan = defaultState().loan;
       if (p.loan.lockedFeatures === undefined) p.loan.lockedFeatures = false;

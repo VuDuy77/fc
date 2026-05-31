@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔑 Admin — Quản Lý Mã Kích Hoạt</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e2e8f0; font-family: system-ui, sans-serif; min-height: 100vh; padding: 20px; }
+  .container { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 800; color: #ffd700; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #4b5563; margin-bottom: 24px; }
+  .card { background: #111827; border: 1px solid #1f2937; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; font-weight: 700; color: #6b7280; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
+  input, textarea { width: 100%; background: #0d1117; border: 1.5px solid #1f2937; border-radius: 8px; padding: 10px 12px; color: #e2e8f0; font-size: 14px; outline: none; transition: border-color 0.2s; font-family: monospace; }
+  input:focus, textarea:focus { border-color: #ffd70066; }
+  label { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
+  .btn { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; border: none; transition: all 0.2s; }
+  .btn-gold { background: linear-gradient(135deg,#1a1000,#2a1a00); color: #ffd700; border: 1.5px solid #ffd70066; }
+  .btn-gold:hover { box-shadow: 0 0 16px #ffd70033; }
+  .btn-green { background: linear-gradient(135deg,#0d2a0d,#1a3a1a); color: #4ade80; border: 1.5px solid #4ade8055; }
+  .btn-green:hover { box-shadow: 0 0 16px #4ade8033; }
+  .btn-blue { background: linear-gradient(135deg,#0a1220,#111f3a); color: #60a5fa; border: 1.5px solid #3b82f655; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 10px; display: none; }
+  .msg.ok { background: rgba(74,222,128,0.1); border: 1px solid #4ade8044; color: #4ade80; display: block; }
+  .msg.err { background: rgba(248,113,113,0.1); border: 1px solid #f8717144; color: #f87171; display: block; }
+  .msg.info { background: rgba(96,165,250,0.1); border: 1px solid #60a5fa44; color: #60a5fa; display: block; }
+  .code-display { font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 4px; color: #ffd700; text-align: center; padding: 14px; background: #0d1117; border-radius: 8px; border: 1px solid #ffd70033; margin: 10px 0; }
+  .codes-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .codes-table th { background: #0d1117; color: #6b7280; padding: 8px 10px; text-align: left; border-bottom: 1px solid #1f2937; }
+  .codes-table td { padding: 7px 10px; border-bottom: 1px solid #1f293744; font-family: monospace; }
+  .badge-used { color: #f87171; font-weight: 700; }
+  .badge-free { color: #4ade80; font-weight: 700; }
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .row > div { flex: 1; }
+  .setup-box { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+  .setup-box h3 { color: #fbbf24; font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .step { display: flex; gap: 10px; margin-bottom: 8px; font-size: 12px; color: #9ca3af; line-height: 1.6; }
+  .step-num { background: #ffd700; color: #000; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; flex-shrink: 0; }
+  .batch-codes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .batch-code-item { font-family: monospace; font-size: 13px; color: #fbbf24; background: #0d1117; border: 1px solid #1f2937; border-radius: 6px; padding: 7px 10px; cursor: pointer; text-align: center; font-weight: 700; letter-spacing: 2px; }
+  .batch-code-item:hover { border-color: #ffd70055; color: #ffd700; }
+  .batch-code-item.selected { border-color: #4ade8066; color: #4ade80; background: rgba(74,222,128,0.08); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #374151; border-top-color: #ffd700; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔑 Admin — Quản Lý Mã Kích Hoạt</h1>
+  <div class="sub">Kết nối Google Sheets · Bảo mật thực sự · Chỉ dành cho bạn</div>
+
+  <!-- SETUP -->
+  <div class="setup-box">
+    <h3>⚙️ Cài đặt lần đầu</h3>
+    <div class="step"><div class="step-num">1</div><div>Vào <b>script.google.com</b> → tạo project mới → paste nội dung file <b>Code.gs</b></div></div>
+    <div class="step"><div class="step-num">2</div><div>Nhấn <b>Deploy → New deployment → Web app</b> → Execute as: <b>Me</b> → Who has access: <b>Anyone</b></div></div>
+    <div class="step"><div class="step-num">3</div><div>Copy URL dạng <b>https://script.google.com/macros/s/xxx/exec</b> → dán vào ô bên dưới</div></div>
+    <div class="step"><div class="step-num">4</div><div>Điền <b>Secret Key</b> đúng với giá trị <b>SECRET_KEY</b> trong file Code.gs (mặc định: <b>factory2025</b>)</div></div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="card">
+    <h2>🔗 Kết nối</h2>
+    <div class="row">
+      <div>
+        <label>Google Apps Script URL</label>
+        <input id="api-url" type="text" placeholder="https://script.google.com/macros/s/.../exec" oninput="saveConfig()">
+      </div>
+      <div style="flex:0 0 auto">
+        <label>Secret Key</label>
+        <input id="secret-key" type="password" placeholder="factory2025" style="width:140px" oninput="saveConfig()">
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn btn-gold" onclick="testConnection()">🔌 Kiểm tra kết nối</button>
+      <button class="btn btn-blue" onclick="loadCodes()">📋 Tải danh sách mã</button>
+    </div>
+    <div class="msg" id="conn-msg"></div>
+  </div>
+
+  <!-- TẠO MÃ -->
+  <div class="card">
+    <h2>✨ Tạo & Thêm Mã</h2>
+    <button class="btn btn-gold" style="width:100%;margin-bottom:12px" onclick="genAndShow()">🎲 Tạo Mã Ngẫu Nhiên</button>
+    <div class="code-display" id="gen-code">Nhấn nút để tạo mã</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-green" style="flex:1" onclick="copyGenCode()">📋 Copy mã</button>
+      <button class="btn btn-blue" style="flex:1" onclick="addGenCode()">➕ Thêm vào Sheets</button>
+    </div>
+    <div class="msg" id="add-msg"></div>
+  </div>
+
+  <!-- TẠO HÀNG LOẠT -->
+  <div class="card">
+    <h2>⚡ Tạo Hàng Loạt</h2>
+    <div class="batch-codes" id="batch-preview"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-gold" onclick="genBatchPreview()">🎲 Tạo 20 mã</button>
+      <button class="btn btn-green" onclick="addBatchToSheets()">☁️ Thêm tất cả vào Sheets</button>
+    </div>
+    <div class="msg" id="batch-msg"></div>
+  </div>
+
+  <!-- DANH SÁCH MÃ -->
+  <div class="card">
+    <h2>📊 Danh Sách Mã Trong Sheets</h2>
+    <div id="codes-list"><div style="color:#374151;font-size:13px">Nhấn "Tải danh sách mã" để xem</div></div>
+  </div>
+</div>
+
+<script>
+// ═══ ALGORITHM (phải khớp với game) ═══════════════════════
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function mcv(c) { return CHARS.indexOf(c); }
+function mvc(v) { return CHARS[((v % 32) + 32) % 32]; }
+function calcCheck(p1, p2, p3f) {
+  var all = p1 + p2 + p3f, sum = 0;
+  for (var i = 0; i < all.length; i++) sum += mcv(all[i]) * (7 * (i + 1) + 31);
+  return mvc((sum + 53) % 32);
+}
+function genCode() {
+  var raw = '';
+  for (var i = 0; i < 11; i++) raw += CHARS[Math.floor(Math.random() * 32)];
+  var p1=raw.slice(0,4), p2=raw.slice(4,8), p3f=raw.slice(8,11);
+  return p1+'-'+p2+'-'+p3f+calcCheck(p1,p2,p3f);
+}
+
+// ═══ CONFIG ════════════════════════════════════════════════
+function saveConfig() {
+  localStorage.setItem('api_url', document.getElementById('api-url').value);
+  localStorage.setItem('secret_key', document.getElementById('secret-key').value);
+}
+function loadConfig() {
+  document.getElementById('api-url').value = localStorage.getItem('api_url') || '';
+  document.getElementById('secret-key').value = localStorage.getItem('secret_key') || '';
+}
+
+function getConfig() {
+  return {
+    url: document.getElementById('api-url').value.trim(),
+    secret: document.getElementById('secret-key').value.trim()
+  };
+}
+
+// ═══ API CALLS ═════════════════════════════════════════════
+async function callAPI(body) {
+  var cfg = getConfig();
+  if (!cfg.url) throw new Error('Chưa nhập URL API!');
+  var res = await fetch(cfg.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    mode: 'cors'
+  });
+  return await res.json();
+}
+
+// ═══ TEST CONNECTION ════════════════════════════════════════
+async function testConnection() {
+  var msgEl = document.getElementById('conn-msg');
+  msgEl.className = 'msg info'; msgEl.innerHTML = '<span class="spinner"></span> Đang kết nối...';
+  try {
+    var cfg = getConfig();
+    var res = await callAPI({ action: 'list', secret: cfg.secret });
+    if (res.ok) {
+      msgEl.className = 'msg ok'; msgEl.textContent = '✅ Kết nối thành công! Sheets có ' + (res.codes||[]).length + ' mã.';
+    } else {
+      msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + res.msg;
+    }
+  } catch(e) {
+    msgEl.className = 'msg err'; msgEl.textContent = '❌ Lỗi kết nối: ' + e.message;
+  }
+}
+
+// ═══ GEN & ADD SINGLE CODE ═════════════════════════════════
+var currentGenCode = '';
+function genAndShow() {
+  currentGenCode = genCode();
+  document.getElementById('gen-code').textContent = currentGenCode;
+  document.getElementById('add-msg').className = 'msg';
+}
+function copyGenCode() {
+  if (!currentGenCode) return;
+  navigator.clipboard && navigator.clipboard.writeText(currentGenCode).then(function(){
+    var btn = event.target; var orig = btn.textContent;
+    btn.textContent = '✅ Đã copy!'; setTimeout(function(){ btn.textContent = orig; }, 1500);
+  });
+}
+async function addGenCode() {
+  if (!currentGenCode) { alert('Tạo mã trước!'); return; }
+  var msgEl = document.getElementById('add-msg');
+  msgEl.className = 'msg info'; msgEl.innerHTML = '<span class="spinner"></span> Đang thêm...';
+  try {
+    var cfg = getConfig();
+    var res = await callAPI({ action: 'add', code: currentGenCode, note: 'Tạo từ admin tool', secret: cfg.secret });
+    if (res.ok) { msgEl.className = 'msg ok'; msgEl.textContent = '✅ ' + res.msg; loadCodes(); }
+    else { msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + res.msg; }
+  } catch(e) {
+    msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══ BATCH ═════════════════════════════════════════════════
+var batchCodes = [];
+function genBatchPreview() {
+  batchCodes = [];
+  for (var i = 0; i < 20; i++) batchCodes.push(genCode());
+  var grid = document.getElementById('batch-preview');
+  grid.innerHTML = '';
+  batchCodes.forEach(function(c) {
+    var el = document.createElement('div');
+    el.className = 'batch-code-item';
+    el.textContent = c;
+    el.onclick = function() {
+      navigator.clipboard && navigator.clipboard.writeText(c).then(function(){
+        el.textContent = '✅ Copied!';
+        setTimeout(function(){ el.textContent = c; }, 1200);
+      });
+    };
+    grid.appendChild(el);
+  });
+  document.getElementById('batch-msg').className = 'msg';
+}
+async function addBatchToSheets() {
+  if (!batchCodes.length) { alert('Tạo mã trước!'); return; }
+  var msgEl = document.getElementById('batch-msg');
+  msgEl.className = 'msg info'; msgEl.innerHTML = '<span class="spinner"></span> Đang thêm ' + batchCodes.length + ' mã...';
+  try {
+    var cfg = getConfig();
+    var res = await callAPI({ action: 'addBatch', codes: batchCodes, secret: cfg.secret });
+    if (res.ok) {
+      msgEl.className = 'msg ok';
+      msgEl.textContent = '✅ ' + res.msg;
+      loadCodes();
+    } else {
+      msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + res.msg;
+    }
+  } catch(e) {
+    msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══ LOAD CODES LIST ═══════════════════════════════════════
+async function loadCodes() {
+  var listEl = document.getElementById('codes-list');
+  listEl.innerHTML = '<div style="color:#60a5fa;font-size:13px"><span class="spinner"></span> Đang tải...</div>';
+  try {
+    var cfg = getConfig();
+    var res = await callAPI({ action: 'list', secret: cfg.secret });
+    if (!res.ok) { listEl.innerHTML = '<div style="color:#f87171;font-size:13px">❌ ' + res.msg + '</div>'; return; }
+    var codes = res.codes || [];
+    if (!codes.length) { listEl.innerHTML = '<div style="color:#374151;font-size:13px">Chưa có mã nào.</div>'; return; }
+    var used = codes.filter(function(c){ return c.used === true || c.used === 'Đã dùng'; }).length;
+    var free = codes.length - used;
+    listEl.innerHTML =
+      '<div style="display:flex;gap:16px;margin-bottom:12px;font-size:13px">'
+      + '<span style="color:#4ade80;font-weight:700">✅ Còn dùng được: ' + free + '</span>'
+      + '<span style="color:#f87171;font-weight:700">❌ Đã dùng: ' + used + '</span>'
+      + '<span style="color:#6b7280">Tổng: ' + codes.length + '</span>'
+      + '</div>'
+      + '<div style="overflow-x:auto"><table class="codes-table">'
+      + '<thead><tr><th>Mã</th><th>Ghi chú</th><th>Trạng thái</th><th>Dùng lúc</th></tr></thead>'
+      + '<tbody>'
+      + codes.map(function(c){
+          var isUsed = c.used === true || c.used === 'Đã dùng';
+          return '<tr>'
+            + '<td>' + c.code + '</td>'
+            + '<td style="color:#6b7280">' + (c.note||'-') + '</td>'
+            + '<td><span class="' + (isUsed?'badge-used':'badge-free') + '">' + (isUsed?'Đã dùng':'Còn trống') + '</span></td>'
+            + '<td style="color:#4b5563">' + (c.usedAt||'-') + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  } catch(e) {
+    listEl.innerHTML = '<div style="color:#f87171;font-size:13px">❌ ' + e.message + '</div>';
+  }
+}
+
+loadConfig();
+genBatchPreview();
+</script>
+</body>
+</html>

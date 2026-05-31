@@ -92,13 +92,13 @@ const MAT_ITEMS = [
     name: 'Value Pump',
     icon: '💹',
     desc: 'Đẩy hệ số nhân giá trị tiền tệ lên ×2 ngay lập tức',
-    effect: 'valueMultiplier ×2 ngay',
+    effect: 'Bonus thu nhập ×2 (cộng thêm vào hệ số hiện tại)',
     color: '#f59e0b',
     theme: '#1a1000',
     border: '#f59e0b66',
     maxBuy: 3,
     prices: [5000, 20000, 80000],
-    apply(G) { G.valueMultiplier = (G.valueMultiplier||1) * 2; }
+    apply(G) { G.matBonuses.valuePumpMult = (G.matBonuses.valuePumpMult||1) * 2; }
   },
 ];
 
@@ -116,6 +116,7 @@ function getMatCount(id) { return G.matPurchased[id] || 0; }
   G.matBonuses.lotteryLuckBonus = def.lotteryLuckBonus;
   G.matBonuses.recycleBoost   = def.recycleBoost;
   G.matBonuses.powerEfficiency = def.powerEfficiency;
+  G.matBonuses.valuePumpMult   = def.valuePumpMult || 1;
   // Re-apply each item N times
   Object.entries(purchased).forEach(([id, count]) => {
     const item = MAT_ITEMS.find(i => i.id === id);
@@ -787,7 +788,7 @@ setTimeout(() => {
 // Restore last UI state
 (function restoreUI() {
   const savedTab = localStorage.getItem('ui_activeTab');
-  const validTabs = ['base','shop','bank','tax','slots','stats','market','inventory','rshop','vipshop','computer','lottery','electricity','matshop'];
+  const validTabs = ['base','shop','bank','tax','slots','stats','market','inventory','rshop','vipshop','computer','lottery','electricity','matshop','skin','casino','banner','settings','updatelog','rank'];
   if (savedTab && validTabs.includes(savedTab)) {
     switchTab(savedTab);
   }

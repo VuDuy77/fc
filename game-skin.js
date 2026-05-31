@@ -614,9 +614,12 @@ function renderSkinTab() {
       <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% -20%,rgba(124,58,237,0.12),transparent 60%);pointer-events:none"></div>
       <div style="font-size:16px;font-weight:800;color:#c084fc;margin-bottom:2px">🎁 Skin Shop</div>
       <div style="font-size:12px;color:#6b7280">Mở hòm nhận icon profile và huy hiệu độc quyền</div>
-      <div style="display:flex;gap:14px;margin-top:8px">
-        <span style="font-size:13px;color:#4ade80;font-weight:600">Có: ${fmt(G.money)}</span>
-        <span style="font-size:13px;color:#00f5ff;font-weight:600">🔮 ${tok} Token</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;gap:14px">
+          <span style="font-size:13px;color:#4ade80;font-weight:600">Có: ${fmt(G.money)}</span>
+          <span style="font-size:13px;color:#00f5ff;font-weight:600">🔮 ${tok} Token</span>
+        </div>
+        <button onclick="showTokenShopRealBuyPopup()" style="padding:6px 14px;background:linear-gradient(135deg,#0d2a0d,#1a3a1a);color:#4ade80;border:1.5px solid #4ade8055;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">💳 Mua Token</button>
       </div>
     </div>
 
@@ -659,3 +662,201 @@ function renderSkinTab() {
     </div>
   `;
 }
+
+// ═══ TOKEN SHOP REAL-MONEY POPUPS ═════════════════════════════════════════
+function showTokenShopRealBuyPopup() {
+  var existing = document.getElementById('token-real-buy-popup');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'token-real-buy-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)';
+  overlay.innerHTML =
+    '<div style="background:linear-gradient(135deg,#0d1117,#111827);border:2px solid #00f5ff44;border-radius:20px;padding:26px 20px;width:100%;max-width:360px;position:relative;box-shadow:0 0 50px #00f5ff11">'
+    + '<button onclick="document.getElementById(\'token-real-buy-popup\').remove()" style="position:absolute;top:12px;right:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:15px;font-weight:700">✕</button>'
+    + '<div style="text-align:center;margin-bottom:18px">'
+    +   '<div style="font-size:42px;margin-bottom:6px">🔮</div>'
+    +   '<div style="font-size:18px;font-weight:800;color:#00f5ff">Mua Token Bằng Tiền Thật</div>'
+    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">Chọn phương thức thanh toán · Mua được nhiều lần</div>'
+    + '</div>'
+    + '<div onclick="document.getElementById(\'token-real-buy-popup\').remove();showTokenCodePopup()" '
+    + 'style="background:linear-gradient(135deg,#0a1220,#111f3a);border:1.5px solid #3b82f655;border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px" '
+    + 'onmouseover="this.style.borderColor=\'#60a5fa88\'" onmouseout="this.style.borderColor=\'#3b82f655\'">'
+    +   '<div style="font-size:32px;flex-shrink:0">🔑</div>'
+    +   '<div>'
+    +     '<div style="font-size:15px;font-weight:700;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
+    +     '<div style="font-size:12px;color:#6b7280;margin-top:3px">Mã dạng <span style="color:#93c5fd;font-family:monospace">XX-XX-XX-XX</span></div>'
+    +     '<div style="font-size:11px;color:#374151;margin-top:4px">Mua mã: <span style="color:#60a5fa">tranthikimai4@gmail.com</span></div>'
+    +   '</div>'
+    + '</div>'
+    + '<div onclick="document.getElementById(\'token-real-buy-popup\').remove();showTokenBankPopup()" '
+    + 'style="background:linear-gradient(135deg,#120a20,#1e1235);border:1.5px solid #7c3aed55;border-radius:14px;padding:16px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px" '
+    + 'onmouseover="this.style.borderColor=\'#a78bfa88\'" onmouseout="this.style.borderColor=\'#7c3aed55\'">'
+    +   '<div style="font-size:32px;flex-shrink:0">🏦</div>'
+    +   '<div>'
+    +     '<div style="font-size:15px;font-weight:700;color:#a78bfa">Chuyển Khoản Ngân Hàng</div>'
+    +     '<div style="font-size:12px;color:#6b7280;margin-top:3px">Vietcombank · TK: <span style="color:#c4b5fd;font-family:monospace;font-weight:700">0905393373</span></div>'
+    +     '<div style="font-size:11px;color:#374151;margin-top:4px">Liên hệ email sau khi chuyển khoản</div>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function showTokenCodePopup() {
+  var existing = document.getElementById('token-code-popup');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'token-code-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)';
+  overlay.innerHTML =
+    '<div style="background:linear-gradient(135deg,#0a1220,#111f3a);border:2px solid #3b82f666;border-radius:20px;padding:26px 20px;width:100%;max-width:360px;position:relative;box-shadow:0 0 50px #3b82f622">'
+    + '<button onclick="document.getElementById(\'token-code-popup\').remove();showTokenShopRealBuyPopup()" style="position:absolute;top:12px;left:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px;font-weight:700">← Quay lại</button>'
+    + '<button onclick="document.getElementById(\'token-code-popup\').remove()" style="position:absolute;top:12px;right:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:15px;font-weight:700">✕</button>'
+    + '<div style="text-align:center;margin-bottom:18px;padding-top:8px">'
+    +   '<div style="font-size:42px;margin-bottom:6px">🔑</div>'
+    +   '<div style="font-size:17px;font-weight:800;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
+    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">Nhận Token · Mã 8 số: XX-XX-XX-XX</div>'
+    + '</div>'
+    + '<div style="background:#0d1117;border:1px solid #3b82f633;border-radius:12px;padding:14px;margin-bottom:14px">'
+    +   '<div style="font-size:12px;color:#60a5fa;font-weight:700;margin-bottom:8px">📧 Cách mua mã:</div>'
+    +   '<div style="font-size:12px;color:#9ca3af;line-height:1.9">'
+    +     '1. Liên hệ email để đặt mua Token<br>'
+    +     '2. Thanh toán và nhận mã kích hoạt<br>'
+    +     '3. Nhập mã bên dưới để nhận Token'
+    +   '</div>'
+    +   '<div style="margin-top:10px;background:#111827;border:1px solid #3b82f644;border-radius:8px;padding:10px;display:flex;align-items:center;gap:8px">'
+    +     '<span style="font-size:16px">📮</span>'
+    +     '<div><div style="font-size:11px;color:#4b5563">Email liên hệ:</div>'
+    +     '<div style="font-size:13px;font-weight:700;color:#60a5fa">tranthikimai4@gmail.com</div></div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    +   '<div style="font-size:12px;color:#6b7280;margin-bottom:7px;font-weight:600">Nhập mã của bạn:</div>'
+    +   '<input id="token-code-input" type="text" maxlength="14" placeholder="VD: AB7H-32F5-53PQ" '
+    +   'oninput="tokenFormatCode(this)" '
+    +   'style="width:100%;box-sizing:border-box;padding:13px 14px;background:#111827;border:2px solid #3b82f644;border-radius:10px;color:#e2e8f0;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:2px;text-align:center;outline:none;transition:border-color 0.2s" '
+    +   'onfocus="this.style.borderColor=\'#60a5fa88\'" onblur="this.style.borderColor=\'#3b82f644\'">'
+    +   '<div id="token-code-msg" style="font-size:12px;margin-top:7px;text-align:center;min-height:18px"></div>'
+    + '</div>'
+    + '<button onclick="tokenRedeemCode()" '
+    + 'style="width:100%;padding:13px;background:linear-gradient(135deg,#1e3a5f,#1e40af);color:#93c5fd;border:1.5px solid #3b82f655;border-radius:10px;cursor:pointer;font-size:14px;font-weight:800">'
+    + '✅ Kích Hoạt & Nhận Token</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function showTokenBankPopup() {
+  var existing = document.getElementById('token-bank-popup');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'token-bank-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)';
+  overlay.innerHTML =
+    '<div style="background:linear-gradient(135deg,#120a20,#1e1235);border:2px solid #7c3aed66;border-radius:20px;padding:26px 20px;width:100%;max-width:360px;position:relative;box-shadow:0 0 50px #7c3aed22">'
+    + '<button onclick="document.getElementById(\'token-bank-popup\').remove();showTokenShopRealBuyPopup()" style="position:absolute;top:12px;left:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px;font-weight:700">← Quay lại</button>'
+    + '<button onclick="document.getElementById(\'token-bank-popup\').remove()" style="position:absolute;top:12px;right:14px;background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:15px;font-weight:700">✕</button>'
+    + '<div style="text-align:center;margin-bottom:18px;padding-top:8px">'
+    +   '<div style="font-size:42px;margin-bottom:6px">🏦</div>'
+    +   '<div style="font-size:17px;font-weight:800;color:#a78bfa">Chuyển Khoản Ngân Hàng</div>'
+    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">Vietcombank — Nhận Token sau khi xác nhận</div>'
+    + '</div>'
+    + '<div style="background:#0d0d1a;border:1.5px solid #7c3aed55;border-radius:14px;padding:16px;margin-bottom:14px">'
+    +   '<div style="font-size:11px;color:#7c3aed;font-weight:700;letter-spacing:1px;margin-bottom:10px">THÔNG TIN NGÂN HÀNG</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #1f2937">'
+    +     '<span style="font-size:13px;color:#6b7280">Ngân hàng:</span>'
+    +     '<span style="font-size:14px;font-weight:700;color:#c4b5fd">Vietcombank</span>'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #1f2937">'
+    +     '<span style="font-size:13px;color:#6b7280">Số tài khoản:</span>'
+    +     '<div style="display:flex;align-items:center;gap:6px">'
+    +       '<span style="font-size:16px;font-weight:900;color:#a78bfa;font-family:monospace;letter-spacing:2px">0905393373</span>'
+    +       '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\'0905393373\').then(function(){var b=document.getElementById(\'copy-token-bank-btn\');if(b){b.textContent=\'✓\';setTimeout(function(){b.textContent=\'📋\'},1500)}})" id="copy-token-bank-btn" style="background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px">📋</button>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center">'
+    +     '<span style="font-size:13px;color:#6b7280">Chủ tài khoản:</span>'
+    +     '<span style="font-size:13px;font-weight:700;color:#e2e8f0">Trần Thị Kim Mai</span>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="background:#0d1117;border:1px solid #7c3aed33;border-radius:12px;padding:14px;margin-bottom:14px">'
+    +   '<div style="font-size:12px;color:#a78bfa;font-weight:700;margin-bottom:8px">📋 Các bước thực hiện:</div>'
+    +   '<div style="font-size:12px;color:#9ca3af;line-height:2">'
+    +     '1. Chuyển khoản, nội dung: <span style="color:#c4b5fd;font-weight:700">TEN_GAME MUA TOKEN</span><br>'
+    +     '2. Chụp biên lai và gửi email đến:<br>'
+    +     '<span style="color:#a78bfa;font-weight:700">tranthikimai4@gmail.com</span><br>'
+    +     '3. Nhận mã kích hoạt qua email<br>'
+    +     '4. Nhập mã tại mục <b style="color:#60a5fa">Nhập Mã Kích Hoạt</b>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px">'
+    +   '<button onclick="document.getElementById(\'token-bank-popup\').remove()" style="flex:1;padding:11px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">Đóng</button>'
+    +   '<button onclick="document.getElementById(\'token-bank-popup\').remove();showTokenCodePopup()" style="flex:1;padding:11px;background:linear-gradient(135deg,#1e1235,#2d1a4a);color:#c4b5fd;border:1.5px solid #7c3aed55;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700">🔑 Nhập Mã</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function tokenFormatCode(input) {
+  var raw = input.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 12);
+  var parts = [];
+  for (var i = 0; i < raw.length; i += 4) parts.push(raw.slice(i, i + 4));
+  input.value = parts.join('-');
+}
+
+// ═══ API HELPER — Kết nối Google Sheets ══════════════════════════════════
+function _callGAPI_T(code, bundleId, callback) {
+  var url = (typeof localStorage !== 'undefined' && localStorage.getItem('factory_api_url')) || '';
+  if (!url) { callback({ ok: false, msg: '⚠️ Chưa cài đặt API! Liên hệ admin.' }); return; }
+  fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'check', code: code.trim().toUpperCase(), bundleId: bundleId || '*' })
+  }).then(function(r){ return r.json(); }).then(function(d){ callback(d); })
+  .catch(function(e){ callback({ ok: false, msg: '❌ Lỗi kết nối: ' + e.message }); });
+}
+
+function tokenRedeemCode() {
+  var input = document.getElementById('token-code-input');
+  var msg = document.getElementById('token-code-msg');
+  if (!input || !msg) return;
+  var code = input.value.trim().toUpperCase();
+  if (!/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code)) {
+    msg.style.color = '#f87171'; msg.textContent = '⚠️ Mã không đúng định dạng! VD: AB7H-32F5-53PQ'; return;
+  }
+  msg.style.color = '#60a5fa'; msg.textContent = '⏳ Đang kiểm tra mã với server...';
+  _callGAPI_T(code, 'token', function(res) {
+    if (!res.ok) { msg.style.color = '#f87171'; msg.textContent = res.msg; return; }
+    G.wallet = G.wallet || {};
+    G.wallet.token = (G.wallet.token || 0) + 500;
+    saveGame(false); updateUI();
+    var popup = document.getElementById('token-code-popup');
+    if (popup) popup.remove();
+    showNotif('🎉 Mã hợp lệ! +500 🔮 Token đã được nạp vào tài khoản!');
+    renderSkinTab();
+  });
+}
+  if (!/^\d{2}-\d{2}-\d{2}-\d{2}$/.test(code)) {
+    msg.style.color = '#f87171';
+    msg.textContent = '⚠️ Mã không đúng định dạng! Vui lòng nhập đủ 8 số.';
+    return;
+  }
+  msg.style.color = '#60a5fa'; msg.textContent = '⏳ Đang kiểm tra mã với server...';
+  _callGAPI_T(code, 'token', function(res) {
+    if (!res.ok) { msg.style.color = '#f87171'; msg.textContent = res.msg; return; }
+    G.wallet = G.wallet || {};
+    G.wallet.token = (G.wallet.token || 0) + 500;
+    saveGame(false); updateUI();
+    var popup = document.getElementById('token-code-popup');
+    if (popup) popup.remove();
+    showNotif('🎉 Mã hợp lệ! +500 🔮 Token đã được nạp vào tài khoản!');
+    renderSkinTab();
+  });
+}
+
+window.showTokenShopRealBuyPopup = showTokenShopRealBuyPopup;
+window.showTokenCodePopup = showTokenCodePopup;
+window.showTokenBankPopup = showTokenBankPopup;
+window.tokenFormatCode = tokenFormatCode;
+window.tokenRedeemCode = tokenRedeemCode;
