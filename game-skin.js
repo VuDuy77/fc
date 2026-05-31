@@ -812,16 +812,34 @@ function tokenFormatCode(input) {
   input.value = result;
 }
 
-// ═══ API HELPER — Kết nối Google Sheets (GET để tránh CORS) ══════════════
+// ═══ API HELPER — JSONP để bypass CORS hoàn toàn ════════════════════════
 function _callGAPI_T(code, bundleId, callback) {
   var url = 'https://script.google.com/macros/s/AKfycbxxHQ5BEGf7ISYeFaxnACWszb5vtLOOjWgSwXK3j60HSD66SUemDLb7fksLofCi5bUa/exec';
   var parts = code.trim().toUpperCase().split('-');
   var baseCode = parts.slice(0, 3).join('-');
-  var params = '?action=check&code=' + encodeURIComponent(baseCode) + '&bundleId=' + encodeURIComponent(bundleId || '*');
-  fetch(url + params, { method: 'GET', redirect: 'follow' })
-    .then(function(r) { return r.json(); })
-    .then(function(d) { callback(d); })
-    .catch(function(e) { callback({ ok: false, msg: '❌ Lỗi kết nối: ' + e.message }); });
+
+  // Tạo callback name ngẫu nhiên
+  var cbName = '_gcb_' + Math.random().toString(36).slice(2);
+  var script = document.createElement('script');
+  var timeout = setTimeout(function() {
+    callback({ ok: false, msg: '❌ Lỗi kết nối: Timeout' });
+    delete window[cbName];
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }, 10000);
+
+  window[cbName] = function(data) {
+    clearTimeout(timeout);
+    delete window[cbName];
+    if (script.parentNode) script.parentNode.removeChild(script);
+    callback(data);
+  };
+
+  var params = '?action=check'
+    + '&code=' + encodeURIComponent(baseCode)
+    + '&bundleId=' + encodeURIComponent(bundleId || '*')
+    + '&callback=' + cbName;
+  script.src = url + params;
+  document.head.appendChild(script);
 }
 
 function tokenRedeemCode() {
