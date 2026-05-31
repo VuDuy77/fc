@@ -814,7 +814,7 @@ function tokenFormatCode(input) {
 
 // ═══ API HELPER — JSONP để bypass CORS hoàn toàn ════════════════════════
 function _callGAPI_T(code, bundleId, callback) {
-  var url = 'https://script.google.com/macros/s/AKfycbxxHQ5BEGf7ISYeFaxnACWszb5vtLOOjWgSwXK3j60HSD66SUemDLb7fksLofCi5bUa/exec';
+  var url = 'https://script.google.com/macros/s/AKfycbyijUqvDWYbmPIcY3t6nrW1on1PrFd0xoXjfabUMP6mfmOnTU18bZHWFpWjb9tICu6ZDw/exec';
   var parts = code.trim().toUpperCase().split('-');
   var baseCode = parts.slice(0, 3).join('-');
 
