@@ -685,7 +685,7 @@ function showTokenShopRealBuyPopup() {
     +   '<div style="font-size:32px;flex-shrink:0">🔑</div>'
     +   '<div>'
     +     '<div style="font-size:15px;font-weight:700;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
-    +     '<div style="font-size:12px;color:#6b7280;margin-top:3px">Mã dạng <span style="color:#93c5fd;font-family:monospace">XX-XX-XX-XX</span></div>'
+    +     '<div style="font-size:12px;color:#6b7280;margin-top:3px">Mã dạng <span style="color:#93c5fd;font-family:monospace">XXXX-XXXX-XXXX-X</span></div>'
     +     '<div style="font-size:11px;color:#374151;margin-top:4px">Mua mã: <span style="color:#60a5fa">tranthikimai4@gmail.com</span></div>'
     +   '</div>'
     + '</div>'
@@ -717,7 +717,7 @@ function showTokenCodePopup() {
     + '<div style="text-align:center;margin-bottom:18px;padding-top:8px">'
     +   '<div style="font-size:42px;margin-bottom:6px">🔑</div>'
     +   '<div style="font-size:17px;font-weight:800;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
-    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">Nhận Token · Mã 8 số: XX-XX-XX-XX</div>'
+    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">Nhận phần thưởng · Mã dạng: XXXX-XXXX-XXXX-X</div>'
     + '</div>'
     + '<div style="background:#0d1117;border:1px solid #3b82f633;border-radius:12px;padding:14px;margin-bottom:14px">'
     +   '<div style="font-size:12px;color:#60a5fa;font-weight:700;margin-bottom:8px">📧 Cách mua mã:</div>'
@@ -734,10 +734,11 @@ function showTokenCodePopup() {
     + '</div>'
     + '<div style="margin-bottom:12px">'
     +   '<div style="font-size:12px;color:#6b7280;margin-bottom:7px;font-weight:600">Nhập mã của bạn:</div>'
-    +   '<input id="token-code-input" type="text" maxlength="14" placeholder="VD: AB7H-32F5-53PQ" '
+    +   '<input id="token-code-input" type="text" maxlength="15" placeholder="VD: AB7H-32F5-53PQ-T" '
     +   'oninput="tokenFormatCode(this)" '
     +   'style="width:100%;box-sizing:border-box;padding:13px 14px;background:#111827;border:2px solid #3b82f644;border-radius:10px;color:#e2e8f0;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:2px;text-align:center;outline:none;transition:border-color 0.2s" '
     +   'onfocus="this.style.borderColor=\'#60a5fa88\'" onblur="this.style.borderColor=\'#3b82f644\'">'
+    +   '<div style="font-size:11px;color:#4b5563;margin-top:6px;text-align:center">S=Starter · P=Prime · C=Contraband · T=Token · A=All</div>'
     +   '<div id="token-code-msg" style="font-size:12px;margin-top:7px;text-align:center;min-height:18px"></div>'
     + '</div>'
     + '<button onclick="tokenRedeemCode()" '
@@ -800,21 +801,27 @@ function showTokenBankPopup() {
 }
 
 function tokenFormatCode(input) {
-  var raw = input.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 12);
+  // Tách phần base (12 ký tự) và suffix (1 chữ cái S/P/C/T/A)
+  var raw = input.value.toUpperCase().replace(/[^A-Z2-9]/g, '');
+  var base = raw.slice(0, 12);
+  var suffix = raw.slice(12, 13);
   var parts = [];
-  for (var i = 0; i < raw.length; i += 4) parts.push(raw.slice(i, i + 4));
-  input.value = parts.join('-');
+  for (var i = 0; i < base.length; i += 4) parts.push(base.slice(i, i + 4));
+  var result = parts.join('-');
+  if (suffix) result += '-' + suffix;
+  input.value = result;
 }
 
-// ═══ API HELPER — Kết nối Google Sheets ══════════════════════════════════
+// ═══ API HELPER — Kết nối Google Sheets (GET để tránh CORS) ══════════════
 function _callGAPI_T(code, bundleId, callback) {
-  var url = (typeof localStorage !== 'undefined' && localStorage.getItem('factory_api_url')) || '';
-  if (!url) { callback({ ok: false, msg: '⚠️ Chưa cài đặt API! Liên hệ admin.' }); return; }
-  fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'check', code: code.trim().toUpperCase(), bundleId: bundleId || '*' })
-  }).then(function(r){ return r.json(); }).then(function(d){ callback(d); })
-  .catch(function(e){ callback({ ok: false, msg: '❌ Lỗi kết nối: ' + e.message }); });
+  var url = 'https://script.google.com/macros/s/AKfycbxxHQ5BEGf7ISYeFaxnACWszb5vtLOOjWgSwXK3j60HSD66SUemDLb7fksLofCi5bUa/exec';
+  var parts = code.trim().toUpperCase().split('-');
+  var baseCode = parts.slice(0, 3).join('-');
+  var params = '?action=check&code=' + encodeURIComponent(baseCode) + '&bundleId=' + encodeURIComponent(bundleId || '*');
+  fetch(url + params, { method: 'GET', redirect: 'follow' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { callback(d); })
+    .catch(function(e) { callback({ ok: false, msg: '❌ Lỗi kết nối: ' + e.message }); });
 }
 
 function tokenRedeemCode() {
@@ -822,18 +829,44 @@ function tokenRedeemCode() {
   var msg = document.getElementById('token-code-msg');
   if (!input || !msg) return;
   var code = input.value.trim().toUpperCase();
-  if (!/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code)) {
-    msg.style.color = '#f87171'; msg.textContent = '⚠️ Mã không đúng định dạng! VD: AB7H-32F5-53PQ'; return;
+  // Format: XXXX-XXXX-XXXX-S/P/C/T/A
+  var suffixMatch = code.match(/^([A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4})-([SPCTA])$/);
+  if (!suffixMatch) {
+    msg.style.color = '#f87171';
+    msg.textContent = '⚠️ Sai định dạng! VD: AB7H-32F5-53PQ-T  (S/P/C/T/A)';
+    return;
   }
+  var suffix = suffixMatch[2]; // S, P, C, T, A
+  // Map suffix → bundleId gửi lên server (khớp Code.gs SUFFIX_MAP)
+  var SUFFIX_TO_BUNDLE = { S:'starter', P:'prime', C:'contraband', T:'token', A:'all' };
+  var bundleId = SUFFIX_TO_BUNDLE[suffix] || '*';
+
   msg.style.color = '#60a5fa'; msg.textContent = '⏳ Đang kiểm tra mã với server...';
-  _callGAPI_T(code, 'token', function(res) {
+  _callGAPI_T(code, bundleId, function(res) {
     if (!res.ok) { msg.style.color = '#f87171'; msg.textContent = res.msg; return; }
     G.wallet = G.wallet || {};
-    G.wallet.token = (G.wallet.token || 0) + 500;
+    // Cấp phần thưởng theo bundle
+    var rewards = [];
+    if (suffix === 'T' || suffix === 'A') {
+      G.wallet.token = (G.wallet.token || 0) + 500;
+      rewards.push('+500 🔮 Token');
+    }
+    if (suffix === 'S' || suffix === 'A') {
+      G.money = (G.money || 0) + 50000;
+      rewards.push('+$50K');
+    }
+    if (suffix === 'P' || suffix === 'A') {
+      G.money = (G.money || 0) + 500000;
+      rewards.push('+$500K');
+    }
+    if (suffix === 'C' || suffix === 'A') {
+      G.wallet.token = (G.wallet.token || 0) + 2000;
+      rewards.push('+2000 🔮 Token');
+    }
     saveGame(false); updateUI();
     var popup = document.getElementById('token-code-popup');
     if (popup) popup.remove();
-    showNotif('🎉 Mã hợp lệ! +500 🔮 Token đã được nạp vào tài khoản!');
+    showNotif('🎉 Mã hợp lệ! ' + rewards.join(' · ') + ' đã được nạp!');
     renderSkinTab();
   });
 }

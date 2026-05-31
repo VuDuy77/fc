@@ -6,6 +6,10 @@
 var SHEET_NAME = 'Codes';       // Tên sheet chứa mã
 var SECRET_KEY = 'factory2025'; // Khóa bí mật (tùy ý đổi)
 
+// Suffix → bundle map (khớp với game)
+// S=starter | P=prime | C=contraband | T=token | A=all
+var SUFFIX_MAP = { 'S': 'starter', 'P': 'prime', 'C': 'contraband', 'T': 'token', 'A': 'all' };
+
 // ── Hàm chính: xử lý mọi request từ game ──────────────────
 function doPost(e) {
   try {
@@ -16,7 +20,7 @@ function doPost(e) {
       return checkCode(body.code, body.bundleId);
     }
     if (action === 'add') {
-      return addCode(body.code, body.note, body.secret);
+      return addCode(body.code, body.note, body.secret, body.suffix);
     }
     if (action === 'addBatch') {
       return addBatch(body.codes, body.secret);
@@ -31,12 +35,34 @@ function doPost(e) {
   }
 }
 
-// ── CORS support ────────────────────────────────────────────
+// ── Xử lý tất cả action qua GET (tránh CORS) ───────────────
 function doGet(e) {
-  return resp({ ok: true, msg: 'Factory Game API đang hoạt động' });
+  try {
+    var params = e && e.parameter ? e.parameter : {};
+    var action = params.action;
+    var secret = params.secret || '';
+
+    if (action === 'check') {
+      return checkCode(params.code, params.bundleId);
+    }
+    if (action === 'list') {
+      return listCodes(secret);
+    }
+    if (action === 'add') {
+      return addCode(params.code, params.note, secret, params.suffix);
+    }
+    if (action === 'addBatch') {
+      var codes = params.codes ? JSON.parse(params.codes) : [];
+      return addBatch(codes, secret);
+    }
+    return resp({ ok: true, msg: 'Factory Game API đang hoạt động' });
+  } catch(err) {
+    return resp({ ok: false, msg: 'Lỗi server: ' + err.message });
+  }
 }
 
 // ── Kiểm tra mã khi người chơi nhập ───────────────────────
+// Game gửi lên phần base (XXXX-XXXX-XXXX), suffix đã bị tách ở client
 function checkCode(code, bundleId) {
   if (!code || code.length < 5) {
     return resp({ ok: false, msg: '⚠️ Mã không hợp lệ!' });
@@ -47,17 +73,18 @@ function checkCode(code, bundleId) {
 
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var rowCode  = String(row[0]).trim().toUpperCase();
-    var rowUsed  = row[2]; // TRUE/FALSE
-    var rowBundle = String(row[3]).trim(); // bundle nào được phép dùng mã này ('*' = tất cả)
+    var rowCode   = String(row[0]).trim().toUpperCase();
+    var rowUsed   = row[2];
+    var rowBundle = String(row[3]).trim(); // 'starter','prime','contraband','token','all','*'
 
     if (rowCode === code.trim().toUpperCase()) {
       if (rowUsed === true || rowUsed === 'TRUE' || rowUsed === 'Đã dùng') {
         return resp({ ok: false, msg: '❌ Mã này đã được sử dụng rồi!' });
       }
-      // Kiểm tra bundle phù hợp
-      if (rowBundle !== '*' && rowBundle !== '' && bundleId && rowBundle !== bundleId) {
-        return resp({ ok: false, msg: '❌ Mã này không áp dụng cho bundle này!' });
+
+      // Kiểm tra bundle khớp: '*' hoặc 'all' = dùng được hết
+      if (rowBundle !== '*' && rowBundle !== 'all' && rowBundle !== '' && bundleId && rowBundle !== bundleId) {
+        return resp({ ok: false, msg: '❌ Mã này không áp dụng cho bundle ' + bundleId + '!' });
       }
 
       // Đánh dấu đã dùng
@@ -65,14 +92,10 @@ function checkCode(code, bundleId) {
       sheet.getRange(sheetRow, 3).setValue('Đã dùng');
       sheet.getRange(sheetRow, 5).setValue(new Date().toLocaleString('vi-VN'));
 
-      // Lấy phần thưởng của mã này
-      var reward = String(row[4] || '').trim(); // Cột E: mô tả phần thưởng (tuỳ chọn)
-
       return resp({
         ok: true,
         msg: '✅ Mã hợp lệ!',
-        bundle: rowBundle === '*' ? bundleId : rowBundle,
-        reward: reward
+        bundle: rowBundle === '*' || rowBundle === 'all' ? (bundleId || 'all') : rowBundle,
       });
     }
   }
@@ -81,7 +104,7 @@ function checkCode(code, bundleId) {
 }
 
 // ── Thêm 1 mã mới (dùng trong admin tool) ─────────────────
-function addCode(code, note, secret) {
+function addCode(code, note, secret, suffix) {
   if (secret !== SECRET_KEY) {
     return resp({ ok: false, msg: 'Sai khóa bí mật!' });
   }
@@ -89,17 +112,24 @@ function addCode(code, note, secret) {
 
   var sheet = getSheet();
   var data = sheet.getDataRange().getValues();
-  var codeUp = code.trim().toUpperCase();
+  // Lưu phần base (bỏ suffix nếu có)
+  var baseCode = code.trim().toUpperCase().split('-').slice(0,3).join('-');
+
+  // Xác định bundle từ suffix
+  var bundleValue = '*';
+  if (suffix && SUFFIX_MAP[suffix.toUpperCase()]) {
+    bundleValue = SUFFIX_MAP[suffix.toUpperCase()];
+  }
 
   // Kiểm tra trùng
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim().toUpperCase() === codeUp) {
-      return resp({ ok: false, msg: 'Mã ' + codeUp + ' đã tồn tại!' });
+    if (String(data[i][0]).trim().toUpperCase() === baseCode) {
+      return resp({ ok: false, msg: 'Mã ' + baseCode + ' đã tồn tại!' });
     }
   }
 
-  sheet.appendRow([codeUp, note || '', false, '*', '', new Date().toLocaleString('vi-VN')]);
-  return resp({ ok: true, msg: 'Đã thêm mã: ' + codeUp });
+  sheet.appendRow([baseCode, note || '', false, bundleValue, '', new Date().toLocaleString('vi-VN')]);
+  return resp({ ok: true, msg: 'Đã thêm mã: ' + baseCode + ' [' + bundleValue + ']' });
 }
 
 // ── Thêm nhiều mã cùng lúc ─────────────────────────────────
@@ -114,12 +144,23 @@ function addBatch(codes, secret) {
   var existing = data.slice(1).map(function(r){ return String(r[0]).trim().toUpperCase(); });
 
   var added = [], skipped = [];
-  codes.forEach(function(code) {
-    var c = String(code).trim().toUpperCase();
-    if (existing.includes(c)) { skipped.push(c); return; }
-    sheet.appendRow([c, '', false, '*', '', new Date().toLocaleString('vi-VN')]);
-    existing.push(c);
-    added.push(c);
+  codes.forEach(function(item) {
+    // item có thể là string (mã+suffix) hoặc object {code, suffix}
+    var fullCode = typeof item === 'string' ? item : item.code;
+    var suffix   = typeof item === 'object' ? (item.suffix || '') : '';
+    var parts = String(fullCode).trim().toUpperCase().split('-');
+    // Nếu 4 phần thì phần cuối là suffix
+    if (parts.length === 4 && parts[3].length === 1) {
+      suffix = parts[3];
+      parts = parts.slice(0,3);
+    }
+    var baseCode = parts.join('-');
+    var bundleValue = (suffix && SUFFIX_MAP[suffix]) ? SUFFIX_MAP[suffix] : '*';
+
+    if (existing.includes(baseCode)) { skipped.push(baseCode); return; }
+    sheet.appendRow([baseCode, suffix ? '[' + bundleValue + ']' : '', false, bundleValue, '', new Date().toLocaleString('vi-VN')]);
+    existing.push(baseCode);
+    added.push(baseCode + (suffix ? '-' + suffix : ''));
   });
 
   return resp({ ok: true, added: added, skipped: skipped, msg: 'Thêm ' + added.length + ' mã, bỏ qua ' + skipped.length + ' mã trùng' });
@@ -144,8 +185,7 @@ function getSheet() {
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow(['Mã', 'Ghi chú', 'Đã dùng', 'Bundle', 'Dùng lúc', 'Tạo lúc']);
-    // Format header
+    sheet.appendRow(['Mã (Base)', 'Ghi chú', 'Đã dùng', 'Bundle', 'Dùng lúc', 'Tạo lúc']);
     var header = sheet.getRange(1, 1, 1, 6);
     header.setBackground('#1a1a2e');
     header.setFontColor('#ffffff');

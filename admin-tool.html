@@ -42,7 +42,9 @@
   .batch-code-item { font-family: monospace; font-size: 13px; color: #fbbf24; background: #0d1117; border: 1px solid #1f2937; border-radius: 6px; padding: 7px 10px; cursor: pointer; text-align: center; font-weight: 700; letter-spacing: 2px; }
   .batch-code-item:hover { border-color: #ffd70055; color: #ffd700; }
   .batch-code-item.selected { border-color: #4ade8066; color: #4ade80; background: rgba(74,222,128,0.08); }
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #374151; border-top-color: #ffd700; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; vertical-align: middle; }
+  .suffix-btn { padding:6px 12px; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700; border:1.5px solid #1f2937; background:#0d1117; color:#6b7280; transition:all 0.2s; }
+  .suffix-btn.active { border-color:#ffd70066; color:#ffd700; background:#1a1000; }
+  .suffix-btn:hover { border-color:#374151; color:#9ca3af; } border: 2px solid #374151; border-top-color: #ffd700; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
@@ -83,6 +85,16 @@
   <!-- TẠO MÃ -->
   <div class="card">
     <h2>✨ Tạo & Thêm Mã</h2>
+    <div style="margin-bottom:10px">
+      <label>Loại mã (suffix)</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="suffix-btns">
+        <button class="suffix-btn active" data-s="S" onclick="setSuffix('S',this)">🚀 -S Starter</button>
+        <button class="suffix-btn" data-s="P" onclick="setSuffix('P',this)">⭐ -P Prime</button>
+        <button class="suffix-btn" data-s="C" onclick="setSuffix('C',this)">💀 -C Contraband</button>
+        <button class="suffix-btn" data-s="T" onclick="setSuffix('T',this)">🔮 -T Token</button>
+        <button class="suffix-btn" data-s="A" onclick="setSuffix('A',this)">🌟 -A All (tất cả)</button>
+      </div>
+    </div>
     <button class="btn btn-gold" style="width:100%;margin-bottom:12px" onclick="genAndShow()">🎲 Tạo Mã Ngẫu Nhiên</button>
     <div class="code-display" id="gen-code">Nhấn nút để tạo mã</div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -95,6 +107,16 @@
   <!-- TẠO HÀNG LOẠT -->
   <div class="card">
     <h2>⚡ Tạo Hàng Loạt</h2>
+    <div style="margin-bottom:10px">
+      <label>Loại mã cho batch</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="batch-suffix-btns">
+        <button class="suffix-btn active" data-s="S" onclick="setBatchSuffix('S',this)">🚀 -S Starter</button>
+        <button class="suffix-btn" data-s="P" onclick="setBatchSuffix('P',this)">⭐ -P Prime</button>
+        <button class="suffix-btn" data-s="C" onclick="setBatchSuffix('C',this)">💀 -C Contraband</button>
+        <button class="suffix-btn" data-s="T" onclick="setBatchSuffix('T',this)">🔮 -T Token</button>
+        <button class="suffix-btn" data-s="A" onclick="setBatchSuffix('A',this)">🌟 -A All</button>
+      </div>
+    </div>
     <div class="batch-codes" id="batch-preview"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn btn-gold" onclick="genBatchPreview()">🎲 Tạo 20 mã</button>
@@ -111,6 +133,20 @@
 </div>
 
 <script>
+// ═══ SUFFIX ════════════════════════════════════════════════
+var currentSuffix = 'S';
+var currentBatchSuffix = 'S';
+function setSuffix(s, el) {
+  currentSuffix = s;
+  document.querySelectorAll('#suffix-btns .suffix-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+function setBatchSuffix(s, el) {
+  currentBatchSuffix = s;
+  document.querySelectorAll('#batch-suffix-btns .suffix-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
 // ═══ ALGORITHM (phải khớp với game) ═══════════════════════
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function mcv(c) { return CHARS.indexOf(c); }
@@ -144,16 +180,16 @@ function getConfig() {
   };
 }
 
-// ═══ API CALLS ═════════════════════════════════════════════
+// ═══ API CALLS (GET để tránh CORS với GAS) ═════════════════
 async function callAPI(body) {
   var cfg = getConfig();
   if (!cfg.url) throw new Error('Chưa nhập URL API!');
-  var res = await fetch(cfg.url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    mode: 'cors'
-  });
+  var params = Object.keys(body).map(function(k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(
+      typeof body[k] === 'object' ? JSON.stringify(body[k]) : body[k]
+    );
+  }).join('&');
+  var res = await fetch(cfg.url + '?' + params, { method: 'GET', redirect: 'follow' });
   return await res.json();
 }
 
@@ -177,7 +213,8 @@ async function testConnection() {
 // ═══ GEN & ADD SINGLE CODE ═════════════════════════════════
 var currentGenCode = '';
 function genAndShow() {
-  currentGenCode = genCode();
+  var base = genCode();
+  currentGenCode = base + '-' + currentSuffix;
   document.getElementById('gen-code').textContent = currentGenCode;
   document.getElementById('add-msg').className = 'msg';
 }
@@ -194,7 +231,9 @@ async function addGenCode() {
   msgEl.className = 'msg info'; msgEl.innerHTML = '<span class="spinner"></span> Đang thêm...';
   try {
     var cfg = getConfig();
-    var res = await callAPI({ action: 'add', code: currentGenCode, note: 'Tạo từ admin tool', secret: cfg.secret });
+    // Gửi suffix riêng để server biết bundle
+    var suffix = currentGenCode.split('-').pop();
+    var res = await callAPI({ action: 'add', code: currentGenCode, note: 'Tạo từ admin tool', secret: cfg.secret, suffix: suffix });
     if (res.ok) { msgEl.className = 'msg ok'; msgEl.textContent = '✅ ' + res.msg; loadCodes(); }
     else { msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + res.msg; }
   } catch(e) {
@@ -206,7 +245,7 @@ async function addGenCode() {
 var batchCodes = [];
 function genBatchPreview() {
   batchCodes = [];
-  for (var i = 0; i < 20; i++) batchCodes.push(genCode());
+  for (var i = 0; i < 20; i++) batchCodes.push(genCode() + '-' + currentBatchSuffix);
   var grid = document.getElementById('batch-preview');
   grid.innerHTML = '';
   batchCodes.forEach(function(c) {

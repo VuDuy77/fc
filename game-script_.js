@@ -2345,7 +2345,7 @@ function showBundleCodePopup(bundleId) {
     + '<div style="text-align:center;margin-bottom:18px;padding-top:8px">'
     +   '<div style="font-size:42px;margin-bottom:6px">🔑</div>'
     +   '<div style="font-size:17px;font-weight:800;color:#60a5fa">Nhập Mã Kích Hoạt</div>'
-    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">' + bundleName + ' · Mã 8 số: XX-XX-XX-XX</div>'
+    +   '<div style="font-size:12px;color:#6b7280;margin-top:4px">' + bundleName + ' · Mã dạng: XXXX-XXXX-XXXX-S/P/C/A</div>'
     + '</div>'
     + '<div style="background:#0d1117;border:1px solid #3b82f633;border-radius:12px;padding:14px;margin-bottom:14px">'
     +   '<div style="font-size:12px;color:#60a5fa;font-weight:700;margin-bottom:8px">📧 Cách mua mã:</div>'
@@ -2363,7 +2363,7 @@ function showBundleCodePopup(bundleId) {
     + '</div>'
     + '<div style="margin-bottom:12px">'
     +   '<div style="font-size:12px;color:#6b7280;margin-bottom:7px;font-weight:600">Nhập mã của bạn:</div>'
-    +   '<input id="bundle-code-input" type="text" maxlength="14" placeholder="VD: AB7H-32F5-53PQ" '
+    +   '<input id="bundle-code-input" type="text" maxlength="16" placeholder="VD: AB7H-32F5-53PQ-S" '
     +   'oninput="bundleFormatCode(this)" '
     +   'style="width:100%;box-sizing:border-box;padding:13px 14px;background:#111827;border:2px solid #3b82f644;border-radius:10px;color:#e2e8f0;font-size:18px;font-weight:700;font-family:monospace;letter-spacing:3px;text-align:center;outline:none;transition:border-color 0.2s" '
     +   'onfocus="this.style.borderColor=\'#60a5fa88\'" onblur="this.style.borderColor=\'#3b82f644\'">'
@@ -2383,46 +2383,48 @@ function bundleFormatCode(input) {
   input.value = parts.join('-');
 }
 
+// ═══ SUFFIX → BUNDLE MAP ══════════════════════════════════════════════════
+// Đuôi mã (ký tự cuối sau dấu -) xác định bundle:
+//   -S = starter | -P = prime | -C = contraband | -T = token | -A = all (cả 3 bundle)
+var SUFFIX_BUNDLE_MAP = { 'S': 'starter', 'P': 'prime', 'C': 'contraband', 'T': 'token', 'A': 'all' };
+
+function _getBundleIdFromCode(code) {
+  // Format: XXXX-XXXX-XXXX-S  (phần base vẫn là 12 ký tự, suffix sau dấu - thứ 3)
+  var parts = code.trim().toUpperCase().split('-');
+  if (parts.length === 4) {
+    var suffix = parts[3];
+    return SUFFIX_BUNDLE_MAP[suffix] || null;
+  }
+  return null;
+}
+
 // ═══ API HELPER — Kết nối Google Sheets ══════════════════════════════════
 function _callGAPI_S(code, bundleId, callback) {
-  var url = (typeof localStorage !== 'undefined' && localStorage.getItem('factory_api_url')) || '';
-  if (!url) { callback({ ok: false, msg: '⚠️ Chưa cài đặt API! Liên hệ admin.' }); return; }
+  var url = 'https://script.google.com/macros/s/AKfycbyHt9804Lrdg902sEiE-Fz0-TG0w_bXxAsGfunZuLFcsHpwkmOOLcBgnYFl0Y7cSPFqkQ/exec';
+  // Gửi phần base (không có suffix) lên server để kiểm tra
+  var baseCode = code.trim().toUpperCase().split('-').slice(0,3).join('-');
   fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'check', code: code.trim().toUpperCase(), bundleId: bundleId || '*' })
+    body: JSON.stringify({ action: 'check', code: baseCode, bundleId: bundleId || '*' })
   }).then(function(r){ return r.json(); }).then(function(d){ callback(d); })
   .catch(function(e){ callback({ ok: false, msg: '❌ Lỗi kết nối: ' + e.message }); });
 }
 
-function bundleRedeemCode(bundleId) {
-  var input = document.getElementById('bundle-code-input');
-  var msg = document.getElementById('bundle-code-msg');
-  if (!input || !msg) return;
-  var code = input.value.trim().toUpperCase();
-  if (!/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code)) {
-    msg.style.color = '#f87171';
-    msg.textContent = '⚠️ Mã không đúng định dạng! VD: AB7H-32F5-53PQ';
-    return;
-  }
-  msg.style.color = '#60a5fa'; msg.textContent = '⏳ Đang kiểm tra mã với server...';
-  _callGAPI_S(code, bundleId, function(res) {
-    if (!res.ok) { msg.style.color = '#f87171'; msg.textContent = res.msg; return; }
-  // Apply bundle rewards (same as buyVipBundle but no $ cost)
-  var bundle = VIP_BUNDLES.find(function(b){ return b.id === bundleId; });
-  if (!bundle) return;
+function _applyBundleRewards(bundleId) {
   if (!G.boughtBundles) G.boughtBundles = [];
-
   if (bundleId === 'starter') {
     [2, 3].forEach(function(t){ if (!G.unlockedTiers.includes(t)) G.unlockedTiers.push(t); });
     G.money += 299999;
     if (!G.wallet) G.wallet = {};
     G.wallet.token = (G.wallet.token || 0) + 30;
+    if (!G.boughtBundles.includes('starter')) G.boughtBundles.push('starter');
   }
   if (bundleId === 'prime') {
     G.ownedSlots += 1;
     while (G.slots.length < G.ownedSlots) G.slots.push(null);
     var maxU1 = G.unlockedTiers.length ? Math.max.apply(null, G.unlockedTiers) : 0;
     for (var t1 = maxU1+1; t1 <= maxU1+2 && t1 <= 10; t1++) { if (!G.unlockedTiers.includes(t1)) G.unlockedTiers.push(t1); }
+    if (!G.boughtBundles.includes('prime')) G.boughtBundles.push('prime');
   }
   if (bundleId === 'contraband') {
     G.ownedSlots += 4;
@@ -2430,13 +2432,61 @@ function bundleRedeemCode(bundleId) {
     var maxU2 = G.unlockedTiers.length ? Math.max.apply(null, G.unlockedTiers) : 0;
     for (var t2 = maxU2+1; t2 <= maxU2+3 && t2 <= 10; t2++) { if (!G.unlockedTiers.includes(t2)) G.unlockedTiers.push(t2); }
     G.invMaxSlots += 20;
+    if (!G.boughtBundles.includes('contraband')) G.boughtBundles.push('contraband');
+  }
+  if (bundleId === 'token') {
+    if (!G.wallet) G.wallet = {};
+    G.wallet.token = (G.wallet.token || 0) + 500;
+  }
+}
+
+function bundleRedeemCode(bundleId) {
+  var input = document.getElementById('bundle-code-input');
+  var msg = document.getElementById('bundle-code-msg');
+  if (!input || !msg) return;
+  var code = input.value.trim().toUpperCase();
+
+  // Format mới: XXXX-XXXX-XXXX-S/P/C/T/A
+  var suffixMatch = code.match(/^([A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4})-([SPCTA])$/);
+  if (!suffixMatch) {
+    msg.style.color = '#f87171';
+    msg.textContent = '⚠️ Sai định dạng! VD: AB7H-32F5-53PQ-S (S=Starter, P=Prime, C=Contraband, T=Token, A=All)';
+    return;
   }
 
-  G.boughtBundles.push(bundleId);
-  saveGame(false); updateUI(); renderVipShop(); renderSlots(); renderShopTabs();
-  var popup = document.getElementById('bundle-code-popup');
-  if (popup) popup.remove();
-  showNotif('🎉 Mã hợp lệ! ' + bundle.icon + ' ' + bundle.name + ' đã được kích hoạt!');
+  var detectedBundle = SUFFIX_BUNDLE_MAP[suffixMatch[2]];
+  // Nếu caller truyền bundleId cụ thể nhưng suffix không khớp → báo lỗi
+  if (bundleId && bundleId !== 'auto' && detectedBundle !== bundleId && detectedBundle !== 'all') {
+    msg.style.color = '#f87171';
+    msg.textContent = '⚠️ Mã này không dành cho bundle ' + bundleId + '!';
+    return;
+  }
+
+  msg.style.color = '#60a5fa'; msg.textContent = '⏳ Đang kiểm tra mã với server...';
+  _callGAPI_S(code, detectedBundle, function(res) {
+    if (!res.ok) { msg.style.color = '#f87171'; msg.textContent = res.msg; return; }
+
+    if (!G.boughtBundles) G.boughtBundles = [];
+
+    if (detectedBundle === 'all') {
+      // Mã -A: kích hoạt tất cả 3 bundle + 500 token
+      _applyBundleRewards('starter');
+      _applyBundleRewards('prime');
+      _applyBundleRewards('contraband');
+      _applyBundleRewards('token');
+      saveGame(false); updateUI(); renderVipShop(); renderSlots(); renderShopTabs();
+      var popup = document.getElementById('bundle-code-popup');
+      if (popup) popup.remove();
+      showNotif('🎉 Mã ALL! 🚀⭐💀 Tất cả bundle đã kích hoạt!');
+    } else {
+      _applyBundleRewards(detectedBundle);
+      saveGame(false); updateUI(); renderVipShop(); renderSlots(); renderShopTabs();
+      var popup2 = document.getElementById('bundle-code-popup');
+      if (popup2) popup2.remove();
+      var bObj = VIP_BUNDLES.find(function(b){ return b.id === detectedBundle; });
+      var bName = bObj ? bObj.icon + ' ' + bObj.name : detectedBundle;
+      showNotif('🎉 Mã hợp lệ! ' + bName + ' đã được kích hoạt!');
+    }
   }); // end _callGAPI_S
 }
 

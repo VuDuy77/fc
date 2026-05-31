@@ -1396,7 +1396,7 @@ function showUltraBundlePopup(id, bundle) {
 
 // ═══ API HELPER — Kết nối Google Sheets ══════════════════════════════════
 function _callGAPI(code, bundleId, callback) {
-  var url = (typeof localStorage !== 'undefined' && localStorage.getItem('factory_api_url')) || '';
+  var url = 'https://script.google.com/macros/s/AKfycbyHt9804Lrdg902sEiE-Fz0-TG0w_bXxAsGfunZuLFcsHpwkmOOLcBgnYFl0Y7cSPFqkQ/exec';
   if (!url) {
     callback({ ok: false, msg: '⚠️ Chưa cài đặt API! Vui lòng liên hệ admin.' });
     return;
